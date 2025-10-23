@@ -78,6 +78,156 @@ const generateId = () => {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
 };
 
+// Função para adicionar evento ao calendário do celular
+const addToCalendar = (booking) => {
+  const startDate = new Date(booking.startTime);
+  const endDate = new Date(booking.endTime);
+  
+  // Formatar datas para o formato do calendário
+  const formatDate = (date) => {
+    return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+  };
+  
+  const startFormatted = formatDate(startDate);
+  const endFormatted = formatDate(endDate);
+  
+  // Criar o conteúdo do evento
+  const eventDetails = {
+    title: `Corte na Barbearia - ${booking.serviceName}`,
+    description: `Serviço: ${booking.serviceName}\nBarbeiro: ${booking.barberName}\nCliente: ${booking.clientName}\nValor: R$ ${booking.price.toFixed(2)}\n\nBarbearia Navalha Dourada`,
+    location: 'Barbearia Navalha Dourada',
+    startTime: startFormatted,
+    endTime: endFormatted,
+    reminder: '20' // 20 minutos antes
+  };
+  
+  // Gerar URL para diferentes tipos de calendário
+  const generateCalendarUrl = (type) => {
+    const baseUrl = type === 'google' 
+      ? 'https://calendar.google.com/calendar/render'
+      : type === 'outlook'
+      ? 'https://outlook.live.com/calendar/0/deeplink/compose'
+      : null;
+    
+    if (!baseUrl) return null;
+    
+    const params = new URLSearchParams({
+      action: 'TEMPLATE',
+      text: eventDetails.title,
+      dates: `${startFormatted}/${endFormatted}`,
+      details: eventDetails.description,
+      location: eventDetails.location,
+      trp: 'false',
+      ...(type === 'google' && { 
+        remind: eventDetails.reminder,
+        remindUnit: 'minutes'
+      })
+    });
+    
+    return `${baseUrl}?${params.toString()}`;
+  };
+  
+  // Detectar o dispositivo e abrir o calendário apropriado
+  const userAgent = navigator.userAgent.toLowerCase();
+  let calendarUrl = null;
+  
+  if (userAgent.includes('iphone') || userAgent.includes('ipad')) {
+    // iOS - usar formato ICS
+    const icsContent = generateICSContent(eventDetails);
+    downloadICS(icsContent, `agendamento-${booking.id}.ics`);
+    
+    // Mostrar instruções para iOS
+    setTimeout(() => {
+      alert('📱 Arquivo baixado! Abra o arquivo .ics no app Calendário do seu iPhone/iPad para adicionar o evento com lembrete.');
+    }, 500);
+  } else if (userAgent.includes('android')) {
+    // Android - tentar Google Calendar
+    calendarUrl = generateCalendarUrl('google');
+    if (calendarUrl) {
+      window.open(calendarUrl, '_blank');
+      setTimeout(() => {
+        alert('📱 Abrindo Google Calendar... Se não abrir automaticamente, copie o link e cole no seu navegador.');
+      }, 500);
+    }
+  } else {
+    // Desktop - mostrar opções
+    showCalendarOptions(eventDetails, booking.id);
+    return;
+  }
+};
+
+// Gerar conteúdo ICS para iOS
+const generateICSContent = (event) => {
+  const now = new Date();
+  const nowFormatted = now.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+  
+  return `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Barbearia Navalha Dourada//Agendamento//PT
+BEGIN:VEVENT
+UID:${generateId()}@barbearia.com
+DTSTAMP:${nowFormatted}
+DTSTART:${event.startTime}
+DTEND:${event.endTime}
+SUMMARY:${event.title}
+DESCRIPTION:${event.description.replace(/\n/g, '\\n')}
+LOCATION:${event.location}
+BEGIN:VALARM
+TRIGGER:-PT${event.reminder}M
+ACTION:DISPLAY
+DESCRIPTION:Lembrete do agendamento
+END:VALARM
+END:VEVENT
+END:VCALENDAR`;
+};
+
+// Download do arquivo ICS
+const downloadICS = (content, filename) => {
+  const blob = new Blob([content], { type: 'text/calendar;charset=utf-8' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
+// Mostrar opções de calendário para desktop
+const showCalendarOptions = (eventDetails, bookingId) => {
+  const modal = document.createElement('div');
+  modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
+  modal.innerHTML = `
+    <div class="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-xl max-w-md w-full">
+      <h3 class="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4">Adicionar ao Calendário</h3>
+      <p class="text-gray-300 mb-4 text-sm sm:text-base">Escolha como deseja adicionar o agendamento ao seu calendário:</p>
+      <div class="space-y-3">
+        <button onclick="window.open('${generateCalendarUrl('google')}', '_blank'); this.closest('.fixed').remove();" 
+                class="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-500 transition-colors text-sm sm:text-base">
+          📅 Google Calendar
+        </button>
+        <button onclick="window.open('${generateCalendarUrl('outlook')}', '_blank'); this.closest('.fixed').remove();" 
+                class="w-full bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-400 transition-colors text-sm sm:text-base">
+          📅 Outlook Calendar
+        </button>
+        <button onclick="downloadICS('${generateICSContent(eventDetails).replace(/'/g, "\\'")}', 'agendamento-${bookingId}.ics'); this.closest('.fixed').remove();" 
+                class="w-full bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-500 transition-colors text-sm sm:text-base">
+          📥 Download (.ics)
+        </button>
+        <button onclick="this.closest('.fixed').remove();" 
+                class="w-full bg-gray-700 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors text-sm sm:text-base">
+          Cancelar
+        </button>
+      </div>
+      <div class="mt-4 p-3 bg-blue-900 bg-opacity-30 border border-blue-500 rounded-lg">
+        <p class="text-blue-200 text-xs sm:text-sm">
+          💡 O lembrete será configurado para 20 minutos antes do horário do agendamento.
+        </p>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+};
+
 const WORKING_HOURS = {
   start: '09:00',
   end: '18:00',
@@ -938,7 +1088,35 @@ const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking }) => {
                 <span className="font-medium">Cliente:</span> {clientInfo.name}
               </p>
             </div>
-            <p className="text-gray-300 mb-6">Te esperamos! Você pode ver seus horários na aba "Meus Horários".</p>
+            <p className="text-gray-300 mb-4">Te esperamos! Você pode ver seus horários na aba "Meus Horários".</p>
+            
+            {/* Informação sobre o lembrete */}
+            <div className="bg-blue-900 bg-opacity-50 border border-blue-500 rounded-lg p-3 mb-4">
+              <p className="text-blue-200 text-sm">
+                💡 <strong>Dica:</strong> Adicione ao seu calendário para receber um lembrete 20 minutos antes do horário!
+              </p>
+            </div>
+            
+            {/* Botão para adicionar ao calendário */}
+            <button
+              onClick={() => {
+                const bookingData = {
+                  id: generateId(),
+                  serviceName: selectedService.name,
+                  barberName: selectedBarber?.name || 'Barbeiro',
+                  clientName: clientInfo.name,
+                  price: selectedService.price,
+                  startTime: new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), selectedTime.getHours(), selectedTime.getMinutes()),
+                  endTime: new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), selectedTime.getHours(), selectedTime.getMinutes() + selectedService.duration)
+                };
+                addToCalendar(bookingData);
+              }}
+              className="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg w-full mb-3 hover:bg-blue-500 transition-all flex items-center justify-center"
+            >
+              <Calendar className="h-5 w-5 mr-2" />
+              Adicionar ao Calendário
+            </button>
+            
             <button
               onClick={resetFlow}
               className="bg-yellow-500 text-gray-900 font-bold py-2 px-6 rounded-lg w-full hover:bg-yellow-400 transition-all"
@@ -1025,6 +1203,15 @@ const BookingsList = ({ bookings, userId, isLoading }) => {
       <p className="text-sm text-gray-300">Data: {formatDate(booking.startTime)}</p>
       <p className="text-sm text-gray-300">Hora: {formatTime(booking.startTime)}</p>
       <p className="text-sm text-gray-300">Barbeiro: {booking.barberName}</p>
+      
+      {/* Botão para adicionar ao calendário */}
+      <button
+        onClick={() => addToCalendar(booking)}
+        className="mt-3 bg-blue-600 text-white py-1 px-3 rounded text-xs hover:bg-blue-500 transition-colors flex items-center"
+      >
+        <Calendar className="h-3 w-3 mr-1" />
+        Adicionar ao Calendário
+      </button>
     </div>
   );
 
