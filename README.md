@@ -129,7 +129,28 @@ src/
 
 ## 🚀 Deploy
 
-Para fazer deploy em produção:
+### Deploy no Vercel (Recomendado)
+
+1. **Conecte seu repositório GitHub ao Vercel:**
+   - Acesse [vercel.com](https://vercel.com)
+   - Faça login com sua conta GitHub
+   - Clique em "New Project"
+   - Importe o repositório `Vinisilva0010/barbearia`
+
+2. **Configurações automáticas:**
+   - O Vercel detectará automaticamente que é um projeto Vite
+   - Build Command: `npm run build`
+   - Output Directory: `dist`
+   - Install Command: `npm install`
+
+3. **Deploy:**
+   - Clique em "Deploy"
+   - Aguarde o processo de build
+   - Seu site estará disponível em uma URL do Vercel
+
+### Deploy Manual
+
+Para fazer deploy em outros servidores:
 
 1. Execute o build:
 ```bash
@@ -139,6 +160,10 @@ npm run build
 2. Os arquivos estarão na pasta `dist/`
 
 3. Faça upload dos arquivos para seu servidor web
+
+### Variáveis de Ambiente
+
+O projeto não requer variáveis de ambiente, pois usa localStorage para armazenamento de dados.
 
 ## 📝 Licença
 
