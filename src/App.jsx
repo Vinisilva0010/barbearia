@@ -175,7 +175,7 @@ const Header = ({ isAdmin, onLogout }) => (
         <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-white tracking-wider">
           <span className="hidden sm:inline">Barbearia Navalha Dourada</span>
           <span className="sm:hidden">Barbearia</span>
-        </h1>
+      </h1>
       </div>
       {isAdmin && (
         <button
@@ -275,7 +275,7 @@ const Navigation = ({ currentView, setCurrentView, notifications, showNotificati
           <span className="text-xs font-medium hidden sm:block">Lembretes</span>
           <span className="text-xs font-medium sm:hidden">Alertas</span>
         </button>
-
+        
         {/* Botão de Admin (apenas para clientes) */}
         {!isAdmin && (
           <button
@@ -1468,15 +1468,15 @@ const AdminDashboard = ({ bookings }) => {
   }, [timeFilter, bookings]);
 
   return (
-    <div className="animate-fade-in space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-bold text-white">Dashboard Administrativo</h2>
-        <div className="flex space-x-2">
+    <div className="animate-fade-in space-y-4 sm:space-y-6 p-4 sm:p-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <h2 className="text-2xl sm:text-3xl font-bold text-white">Dashboard Administrativo</h2>
+        <div className="flex flex-wrap gap-2">
           {['day', 'week', 'month'].map(filter => (
             <button
               key={filter}
               onClick={() => setTimeFilter(filter)}
-              className={`py-2 px-4 rounded-lg font-medium transition-all text-sm ${
+              className={`py-2 px-3 sm:px-4 rounded-lg font-medium transition-all text-xs sm:text-sm ${
                 timeFilter === filter 
                   ? 'bg-yellow-500 text-gray-900' 
                   : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
@@ -1489,71 +1489,71 @@ const AdminDashboard = ({ bookings }) => {
       </div>
 
       {/* Cards de Estatísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-xl">
           <div className="flex items-center">
-            <DollarSign className="h-8 w-8 text-green-500 mr-4" />
+            <DollarSign className="h-6 w-6 sm:h-8 sm:w-8 text-green-500 mr-2 sm:mr-4" />
             <div>
-              <p className="text-sm text-gray-400">Receita Total</p>
-              <p className="text-2xl font-bold text-white">R$ {stats.totalRevenue.toFixed(2)}</p>
+              <p className="text-xs sm:text-sm text-gray-400">Receita Total</p>
+              <p className="text-lg sm:text-2xl font-bold text-white">R$ {stats.totalRevenue.toFixed(2)}</p>
             </div>
           </div>
         </div>
         
-        <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
+        <div className="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-xl">
           <div className="flex items-center">
-            <Hash className="h-8 w-8 text-blue-500 mr-4" />
+            <Hash className="h-6 w-6 sm:h-8 sm:w-8 text-blue-500 mr-2 sm:mr-4" />
             <div>
-              <p className="text-sm text-gray-400">Total de Serviços</p>
-              <p className="text-2xl font-bold text-white">{stats.totalBookings}</p>
+              <p className="text-xs sm:text-sm text-gray-400">Total de Serviços</p>
+              <p className="text-lg sm:text-2xl font-bold text-white">{stats.totalBookings}</p>
             </div>
           </div>
         </div>
         
-        <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
+        <div className="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-xl">
           <div className="flex items-center">
-            <Star className="h-8 w-8 text-yellow-500 mr-4" />
+            <Star className="h-6 w-6 sm:h-8 sm:w-8 text-yellow-500 mr-2 sm:mr-4" />
             <div>
-              <p className="text-sm text-gray-400">Avaliação Média</p>
-              <p className="text-2xl font-bold text-white">{stats.averageRating.toFixed(1)}</p>
+              <p className="text-xs sm:text-sm text-gray-400">Avaliação Média</p>
+              <p className="text-lg sm:text-2xl font-bold text-white">{stats.averageRating.toFixed(1)}</p>
             </div>
           </div>
         </div>
         
-        <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
+        <div className="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-xl">
           <div className="flex items-center">
-            <Users className="h-8 w-8 text-purple-500 mr-4" />
+            <Users className="h-6 w-6 sm:h-8 sm:w-8 text-purple-500 mr-2 sm:mr-4" />
             <div>
-              <p className="text-sm text-gray-400">Clientes Atendidos</p>
-              <p className="text-2xl font-bold text-white">{stats.uniqueClients}</p>
+              <p className="text-xs sm:text-sm text-gray-400">Clientes Atendidos</p>
+              <p className="text-lg sm:text-2xl font-bold text-white">{stats.uniqueClients}</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Gráficos e Análises */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Receita por Barbeiro */}
-        <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
-          <h3 className="text-xl font-semibold text-white mb-4">Receita por Barbeiro</h3>
-          <div className="space-y-3">
+        <div className="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-xl">
+          <h3 className="text-lg sm:text-xl font-semibold text-white mb-3 sm:mb-4">Receita por Barbeiro</h3>
+          <div className="space-y-2 sm:space-y-3">
             {stats.revenueByBarber.map(([name, revenue]) => (
               <div key={name} className="flex justify-between items-center">
-                <span className="text-gray-300">{name}</span>
-                <span className="font-bold text-green-400">R$ {revenue.toFixed(2)}</span>
+                <span className="text-gray-300 text-sm sm:text-base">{name}</span>
+                <span className="font-bold text-green-400 text-sm sm:text-base">R$ {revenue.toFixed(2)}</span>
               </div>
             ))}
           </div>
         </div>
 
         {/* Serviços Mais Populares */}
-        <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
-          <h3 className="text-xl font-semibold text-white mb-4">Serviços Mais Populares</h3>
-          <div className="space-y-3">
+        <div className="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-xl">
+          <h3 className="text-lg sm:text-xl font-semibold text-white mb-3 sm:mb-4">Serviços Mais Populares</h3>
+          <div className="space-y-2 sm:space-y-3">
             {stats.serviceStats.map(([service, count]) => (
               <div key={service} className="flex justify-between items-center">
-                <span className="text-gray-300">{service}</span>
-                <span className="font-bold text-blue-400">{count} serviços</span>
+                <span className="text-gray-300 text-sm sm:text-base">{service}</span>
+                <span className="font-bold text-blue-400 text-sm sm:text-base">{count} serviços</span>
               </div>
             ))}
           </div>
@@ -1561,14 +1561,14 @@ const AdminDashboard = ({ bookings }) => {
       </div>
 
       {/* Clientes Frequentes */}
-      <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
-        <h3 className="text-xl font-semibold text-white mb-4">Clientes Frequentes</h3>
+      <div className="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-xl">
+        <h3 className="text-lg sm:text-xl font-semibold text-white mb-3 sm:mb-4">Clientes Frequentes</h3>
         {stats.uniqueClients > 0 ? (
-          <p className="text-gray-400 text-center py-8">
+          <p className="text-gray-400 text-center py-6 sm:py-8 text-sm sm:text-base">
             {stats.uniqueClients} clientes únicos atendidos no período selecionado.
           </p>
         ) : (
-          <p className="text-gray-400 text-center py-8">
+          <p className="text-gray-400 text-center py-6 sm:py-8 text-sm sm:text-base">
             Nenhum cliente atendido ainda. Faça alguns agendamentos para ver as estatísticas!
           </p>
         )}
@@ -1591,41 +1591,41 @@ const AdminBookings = ({ bookings, onUpdateBooking }) => {
   };
 
   return (
-    <div className="animate-fade-in space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-bold text-white">Gerenciar Agendamentos</h2>
+    <div className="animate-fade-in space-y-4 sm:space-y-6 p-4 sm:p-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <h2 className="text-2xl sm:text-3xl font-bold text-white">Gerenciar Agendamentos</h2>
         <input
           type="date"
           value={selectedDate}
           onChange={(e) => setSelectedDate(e.target.value)}
-          className="bg-gray-700 text-white border-gray-600 rounded-lg p-2"
+          className="bg-gray-700 text-white border-gray-600 rounded-lg p-2 w-full sm:w-auto"
         />
       </div>
 
-      <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
-        <h3 className="text-xl font-semibold text-white mb-4">
+      <div className="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-xl">
+        <h3 className="text-lg sm:text-xl font-semibold text-white mb-3 sm:mb-4">
           Agendamentos para {new Date(selectedDate).toLocaleDateString('pt-BR')}
         </h3>
         
         {todaysBookings.length > 0 ? (
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             {todaysBookings.map(booking => (
-              <div key={booking.id} className="bg-gray-700 p-4 rounded-lg flex justify-between items-center">
-                <div>
-                  <h4 className="font-semibold text-white">{booking.serviceName}</h4>
-                  <p className="text-gray-400">Cliente: {booking.clientName}</p>
-                  <p className="text-gray-400">Barbeiro: {booking.barberName}</p>
-                  <p className="text-gray-400">Horário: {booking.date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
+              <div key={booking.id} className="bg-gray-700 p-3 sm:p-4 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                <div className="flex-1">
+                  <h4 className="font-semibold text-white text-sm sm:text-base">{booking.serviceName}</h4>
+                  <p className="text-gray-400 text-xs sm:text-sm">Cliente: {booking.clientName}</p>
+                  <p className="text-gray-400 text-xs sm:text-sm">Barbeiro: {booking.barberName}</p>
+                  <p className="text-gray-400 text-xs sm:text-sm">Horário: {booking.date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
                 </div>
-                <div className="text-right">
-                  <p className="text-lg font-bold text-green-400">R$ {booking.price.toFixed(2)}</p>
-                  <div className="flex items-center mt-2">
-                    <Star className="h-4 w-4 text-yellow-500 mr-1" />
-                    <span className="text-sm text-gray-300">{booking.rating}</span>
+                <div className="flex flex-col sm:items-end gap-2 w-full sm:w-auto">
+                  <p className="text-base sm:text-lg font-bold text-green-400">R$ {booking.price.toFixed(2)}</p>
+                  <div className="flex items-center">
+                    <Star className="h-3 w-3 sm:h-4 sm:w-4 text-yellow-500 mr-1" />
+                    <span className="text-xs sm:text-sm text-gray-300">{booking.rating}</span>
                   </div>
                   <button 
                     onClick={() => handleCompleteBooking(booking.id)}
-                    className="mt-2 bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-500"
+                    className="bg-green-600 text-white px-3 py-1 rounded text-xs sm:text-sm hover:bg-green-500 w-full sm:w-auto"
                   >
                     {booking.status === 'completed' ? 'Concluído' : 'Marcar como Concluído'}
                   </button>
@@ -1678,39 +1678,40 @@ const AdminClients = ({ bookings }) => {
   }, [bookings]);
 
   return (
-    <div className="animate-fade-in space-y-6">
-      <h2 className="text-3xl font-bold text-white">Gerenciar Clientes</h2>
+    <div className="animate-fade-in space-y-4 sm:space-y-6 p-4 sm:p-6">
+      <h2 className="text-2xl sm:text-3xl font-bold text-white">Gerenciar Clientes</h2>
       
-      <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
-        <h3 className="text-xl font-semibold text-white mb-4">Base de Clientes</h3>
+      <div className="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-xl">
+        <h3 className="text-lg sm:text-xl font-semibold text-white mb-3 sm:mb-4">Base de Clientes</h3>
         {clientStats.length > 0 ? (
           <div className="overflow-x-auto">
-            <table className="w-full text-left">
+            {/* Desktop Table */}
+            <table className="w-full text-left hidden sm:table">
               <thead>
                 <tr className="border-b border-gray-600">
-                  <th className="pb-3 text-gray-300">Cliente</th>
-                  <th className="pb-3 text-gray-300">Visitas</th>
-                  <th className="pb-3 text-gray-300">Última Visita</th>
-                  <th className="pb-3 text-gray-300">Total Gasto</th>
-                  <th className="pb-3 text-gray-300">Serviço Favorito</th>
-                  <th className="pb-3 text-gray-300">Ações</th>
+                  <th className="pb-3 text-gray-300 text-sm">Cliente</th>
+                  <th className="pb-3 text-gray-300 text-sm">Visitas</th>
+                  <th className="pb-3 text-gray-300 text-sm">Última Visita</th>
+                  <th className="pb-3 text-gray-300 text-sm">Total Gasto</th>
+                  <th className="pb-3 text-gray-300 text-sm">Serviço Favorito</th>
+                  <th className="pb-3 text-gray-300 text-sm">Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {clientStats.map((client, index) => (
                   <tr key={index} className="border-b border-gray-700">
-                    <td className="py-3 text-white font-medium">{client.name}</td>
-                    <td className="py-3 text-gray-300">{client.visits}</td>
-                    <td className="py-3 text-gray-300">
+                    <td className="py-3 text-white font-medium text-sm">{client.name}</td>
+                    <td className="py-3 text-gray-300 text-sm">{client.visits}</td>
+                    <td className="py-3 text-gray-300 text-sm">
                       {client.lastVisit ? client.lastVisit.toLocaleDateString('pt-BR') : 'N/A'}
                     </td>
-                    <td className="py-3 text-green-400 font-semibold">R$ {client.totalSpent.toFixed(2)}</td>
-                    <td className="py-3 text-gray-300">{client.favoriteService}</td>
+                    <td className="py-3 text-green-400 font-semibold text-sm">R$ {client.totalSpent.toFixed(2)}</td>
+                    <td className="py-3 text-gray-300 text-sm">{client.favoriteService}</td>
                     <td className="py-3">
-                      <button className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-500 mr-2">
-                        Ver Histórico
+                      <button className="bg-blue-600 text-white px-2 py-1 rounded text-xs hover:bg-blue-500 mr-1">
+                        Histórico
                       </button>
-                      <button className="bg-yellow-600 text-white px-3 py-1 rounded text-sm hover:bg-yellow-500">
+                      <button className="bg-yellow-600 text-white px-2 py-1 rounded text-xs hover:bg-yellow-500">
                         Contatar
                       </button>
                     </td>
@@ -1718,6 +1719,37 @@ const AdminClients = ({ bookings }) => {
                 ))}
               </tbody>
             </table>
+
+            {/* Mobile Cards */}
+            <div className="sm:hidden space-y-3">
+              {clientStats.map((client, index) => (
+                <div key={index} className="bg-gray-700 p-4 rounded-lg">
+                  <div className="flex justify-between items-start mb-2">
+                    <h4 className="text-white font-medium text-sm">{client.name}</h4>
+                    <span className="text-green-400 font-semibold text-sm">R$ {client.totalSpent.toFixed(2)}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs text-gray-300 mb-3">
+                    <div>
+                      <span className="text-gray-400">Visitas:</span> {client.visits}
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Última:</span> {client.lastVisit ? client.lastVisit.toLocaleDateString('pt-BR') : 'N/A'}
+                    </div>
+                  </div>
+                  <div className="mb-3 text-xs text-gray-300">
+                    <span className="text-gray-400">Favorito:</span> {client.favoriteService}
+                  </div>
+                  <div className="flex gap-2">
+                    <button className="bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-500 flex-1">
+                      Ver Histórico
+                    </button>
+                    <button className="bg-yellow-600 text-white px-3 py-1 rounded text-xs hover:bg-yellow-500 flex-1">
+                      Contatar
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         ) : (
           <p className="text-gray-400 text-center py-8">
@@ -1775,13 +1807,13 @@ const AdminAnalytics = ({ bookings }) => {
 
   const dayNames = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
   return (
-    <div className="animate-fade-in space-y-6">
-      <h2 className="text-3xl font-bold text-white">Analytics Avançados</h2>
+    <div className="animate-fade-in space-y-4 sm:space-y-6 p-4 sm:p-6">
+      <h2 className="text-2xl sm:text-3xl font-bold text-white">Analytics Avançados</h2>
       
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Horários de Pico */}
-        <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
-          <h3 className="text-xl font-semibold text-white mb-4">Horários de Pico</h3>
+        <div className="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-xl">
+          <h3 className="text-lg sm:text-xl font-semibold text-white mb-3 sm:mb-4">Horários de Pico</h3>
           <div className="space-y-3">
             <div className="flex justify-between items-center">
               <span className="text-gray-300">09:00 - 10:00</span>
@@ -1896,32 +1928,32 @@ const AdminAnalytics = ({ bookings }) => {
 // Configurações Admin
 const AdminSettings = ({ bookings, onAddBooking }) => {
   return (
-    <div className="animate-fade-in space-y-6">
-      <h2 className="text-3xl font-bold text-white">Configurações</h2>
+    <div className="animate-fade-in space-y-4 sm:space-y-6 p-4 sm:p-6">
+      <h2 className="text-2xl sm:text-3xl font-bold text-white">Configurações</h2>
       
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Configurações de Horários */}
-        <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
-          <h3 className="text-xl font-semibold text-white mb-4">Horários de Funcionamento</h3>
-          <div className="space-y-4">
+        <div className="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-xl">
+          <h3 className="text-lg sm:text-xl font-semibold text-white mb-3 sm:mb-4">Horários de Funcionamento</h3>
+          <div className="space-y-3 sm:space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Horário de Abertura</label>
+              <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-1 sm:mb-2">Horário de Abertura</label>
               <input
                 type="time"
                 defaultValue="09:00"
-                className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+                className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-2 sm:p-3 focus:ring-yellow-500 focus:border-yellow-500 text-sm sm:text-base"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Horário de Fechamento</label>
+              <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-1 sm:mb-2">Horário de Fechamento</label>
               <input
                 type="time"
                 defaultValue="18:00"
-                className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+                className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-2 sm:p-3 focus:ring-yellow-500 focus:border-yellow-500 text-sm sm:text-base"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Início do Almoço</label>
+              <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-1 sm:mb-2">Início do Almoço</label>
               <input
                 type="time"
                 defaultValue="12:00"
