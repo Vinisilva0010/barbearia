@@ -1999,6 +1999,26 @@ export default function App() {
   const [userId] = useState("user-001");
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
+  const [error, setError] = useState(null);
+
+  // Error boundary para capturar erros
+  useEffect(() => {
+    const handleError = (error) => {
+      console.error('Erro capturado:', error);
+      setError(error.message);
+    };
+
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', (event) => {
+      console.error('Promise rejeitada:', event.reason);
+      setError(event.reason?.message || 'Erro desconhecido');
+    });
+
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleError);
+    };
+  }, []);
   
   const [bookings, setBookings] = useState([]);
   const [isLoadingBookings] = useState(false);
@@ -2113,6 +2133,23 @@ export default function App() {
   // Se está mostrando login de admin
   if (showAdminLogin) {
     return <AdminLogin onLogin={handleAdminAuth} />;
+  }
+
+  if (error) {
+    return (
+      <div className="font-inter bg-gray-900 text-white min-h-screen flex items-center justify-center">
+        <div className="text-center p-8">
+          <h1 className="text-2xl font-bold text-red-500 mb-4">Erro no Sistema</h1>
+          <p className="text-gray-300 mb-4">{error}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="bg-yellow-500 text-gray-900 font-bold py-2 px-6 rounded-lg hover:bg-yellow-400"
+          >
+            Recarregar Página
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
