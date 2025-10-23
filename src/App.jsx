@@ -168,21 +168,22 @@ const AdminLogin = ({ onLogin }) => {
 
 // Componente de Cabeçalho
 const Header = ({ isAdmin, onLogout }) => (
-  <header className="w-full bg-gray-900 p-4 border-b-2 border-yellow-500">
+  <header className="w-full bg-gray-900 p-3 sm:p-4 border-b-2 border-yellow-500">
     <div className="max-w-5xl mx-auto flex items-center justify-between">
       <div className="flex items-center">
-      <Scissors className="text-yellow-500 h-8 w-8 mr-3" />
-      <h1 className="text-2xl md:text-3xl font-bold text-white tracking-wider">
-        Barbearia Navalha Dourada
-      </h1>
+        <Scissors className="text-yellow-500 h-6 w-6 sm:h-8 sm:w-8 mr-2 sm:mr-3" />
+        <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-white tracking-wider">
+          <span className="hidden sm:inline">Barbearia Navalha Dourada</span>
+          <span className="sm:hidden">Barbearia</span>
+        </h1>
       </div>
       {isAdmin && (
         <button
           onClick={onLogout}
-          className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-500 transition-all flex items-center"
+          className="bg-red-600 text-white px-3 py-2 sm:px-4 rounded-lg hover:bg-red-500 transition-all flex items-center text-sm sm:text-base"
         >
-          <X className="h-4 w-4 mr-2" />
-          Sair
+          <X className="h-4 w-4 mr-1 sm:mr-2" />
+          <span className="hidden sm:inline">Sair</span>
         </button>
       )}
     </div>
@@ -239,52 +240,55 @@ const Navigation = ({ currentView, setCurrentView, notifications, showNotificati
   const navItems = isAdmin ? adminNavItems : clientNavItems;
 
   return (
-    <nav className="w-full bg-gray-800 p-2 sticky top-0 z-40 shadow-lg"> {/* Z-index ajustado */}
-      <div className="max-w-md mx-auto flex justify-around relative"> {/* Adicionado relative */}
+    <nav className="w-full bg-gray-800 p-2 sticky top-0 z-40 shadow-lg">
+      <div className="max-w-md sm:max-w-lg md:max-w-4xl mx-auto flex justify-around relative">
         {navItems.map((item) => (
           <button
             key={item.id}
             onClick={() => setCurrentView(item.id)}
-            className={`flex flex-col items-center px-4 py-2 rounded-lg transition-all duration-200 ${
+            className={`flex flex-col items-center px-2 sm:px-3 md:px-4 py-2 rounded-lg transition-all duration-200 ${
               currentView === item.id
                 ? 'bg-yellow-500 text-gray-900 scale-105'
                 : 'text-gray-300 hover:bg-gray-700 hover:text-white'
             }`}
           >
-            <item.icon className="h-5 w-5 mb-1" />
-            <span className="text-xs font-medium">{item.label}</span>
+            <item.icon className="h-4 w-4 sm:h-5 sm:w-5 mb-1" />
+            <span className="text-xs font-medium hidden sm:block">{item.label}</span>
+            <span className="text-xs font-medium sm:hidden">{item.label.split(' ')[0]}</span>
           </button>
         ))}
         
         {/* Botão de Notificações */}
         <button
           onClick={() => setShowNotifications(prev => !prev)}
-          className="relative flex flex-col items-center px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white"
+          className="relative flex flex-col items-center px-2 sm:px-3 md:px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white"
         >
           {notifications.length > 0 && (
-            <span className="absolute top-1 right-3 flex h-4 w-4">
+            <span className="absolute top-1 right-2 sm:right-3 flex h-3 w-3 sm:h-4 sm:w-4">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 items-center justify-center text-xs font-bold text-white">
+              <span className="relative inline-flex rounded-full h-3 w-3 sm:h-4 sm:w-4 bg-red-500 items-center justify-center text-xs font-bold text-white">
                 {notifications.length}
               </span>
             </span>
           )}
-          <Bell className="h-5 w-5 mb-1" />
-          <span className="text-xs font-medium">Lembretes</span>
+          <Bell className="h-4 w-4 sm:h-5 sm:w-5 mb-1" />
+          <span className="text-xs font-medium hidden sm:block">Lembretes</span>
+          <span className="text-xs font-medium sm:hidden">Alertas</span>
         </button>
 
         {/* Botão de Admin (apenas para clientes) */}
         {!isAdmin && (
           <button
             onClick={onAdminLogin}
-            className="flex flex-col items-center px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white"
+            className="flex flex-col items-center px-2 sm:px-3 md:px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white"
           >
-            <Lock className="h-5 w-5 mb-1" />
-            <span className="text-xs font-medium">Admin</span>
+            <Lock className="h-4 w-4 sm:h-5 sm:w-5 mb-1" />
+            <span className="text-xs font-medium hidden sm:block">Admin</span>
+            <span className="text-xs font-medium sm:hidden">Admin</span>
           </button>
         )}
         
-        {/* Painel de Notificações Dropdown (NOVO) */}
+        {/* Painel de Notificações Dropdown */}
         {showNotifications && (
           <NotificationsPanel 
             notifications={notifications} 
@@ -298,46 +302,46 @@ const Navigation = ({ currentView, setCurrentView, notifications, showNotificati
 
 // Componente da Tela Inicial (Home)
 const Home = ({ onBookNow }) => (
-  <div className="animate-fade-in space-y-6">
-    <div className="bg-gray-800 p-6 rounded-lg shadow-xl text-center">
-      <h2 className="text-3xl font-bold text-white mb-3">Bem-vindo à Navalha Dourada!</h2>
-      <p className="text-gray-300 mb-6">Onde tradição e estilo se encontram. Agende seu horário com os melhores.</p>
+  <div className="animate-fade-in space-y-4 sm:space-y-6 p-4 sm:p-6">
+    <div className="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-xl text-center">
+      <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2 sm:mb-3">Bem-vindo à Navalha Dourada!</h2>
+      <p className="text-gray-300 mb-4 sm:mb-6 text-sm sm:text-base">Onde tradição e estilo se encontram. Agende seu horário com os melhores.</p>
       <button
         onClick={onBookNow}
-        className="bg-yellow-500 text-gray-900 font-bold py-3 px-8 rounded-lg text-lg hover:bg-yellow-400 transition-transform hover:scale-105"
+        className="bg-yellow-500 text-gray-900 font-bold py-3 px-6 sm:px-8 rounded-lg text-base sm:text-lg hover:bg-yellow-400 transition-transform hover:scale-105 w-full sm:w-auto"
       >
         Agendar Agora
       </button>
     </div>
     
-    <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
-      <h3 className="text-2xl font-semibold text-white mb-4 border-l-4 border-yellow-500 pl-3">Nossos Serviços</h3>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div className="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-xl">
+      <h3 className="text-xl sm:text-2xl font-semibold text-white mb-3 sm:mb-4 border-l-4 border-yellow-500 pl-3">Nossos Serviços</h3>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         {SERVICES.map(service => (
-          <div key={service.id} className="bg-gray-700 p-4 rounded-lg text-center shadow-md">
-            <service.icon className="h-8 w-8 text-yellow-500 mx-auto mb-2" />
-            <p className="font-semibold text-white">{service.name}</p>
-            <p className="text-sm text-gray-300">R$ {service.price.toFixed(2)}</p>
+          <div key={service.id} className="bg-gray-700 p-3 sm:p-4 rounded-lg text-center shadow-md">
+            <service.icon className="h-6 w-6 sm:h-8 sm:w-8 text-yellow-500 mx-auto mb-2" />
+            <p className="font-semibold text-white text-sm sm:text-base">{service.name}</p>
+            <p className="text-xs sm:text-sm text-gray-300">R$ {service.price.toFixed(2)}</p>
           </div>
         ))}
       </div>
     </div>
     
-    <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
-      <h3 className="text-2xl font-semibold text-white mb-4 border-l-4 border-yellow-500 pl-3">Nossa Equipe</h3>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div className="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-xl">
+      <h3 className="text-xl sm:text-2xl font-semibold text-white mb-3 sm:mb-4 border-l-4 border-yellow-500 pl-3">Nossa Equipe</h3>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         {BARBERS.map(barber => (
           <div key={barber.id} className="bg-gray-700 p-4 rounded-lg text-center shadow-md">
             <img 
               src={barber.avatar}
               alt={barber.name}
-              className="w-20 h-20 rounded-full border-4 border-yellow-500 mb-3 mx-auto object-cover"
+              className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-4 border-yellow-500 mb-3 mx-auto object-cover"
             />
-            <p className="text-lg font-medium text-white">{barber.name}</p>
-            <p className="text-sm text-gray-400">{barber.specialty}</p>
+            <p className="text-base sm:text-lg font-medium text-white">{barber.name}</p>
+            <p className="text-xs sm:text-sm text-gray-400">{barber.specialty}</p>
             <div className="flex items-center justify-center mt-2">
               <Star className="h-4 w-4 text-yellow-500 mr-1" />
-              <span className="text-sm text-gray-300">{barber.rating}</span>
+              <span className="text-xs sm:text-sm text-gray-300">{barber.rating}</span>
               <span className="text-xs text-gray-500 ml-2">({barber.experience})</span>
             </div>
           </div>
@@ -710,10 +714,10 @@ const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking }) => {
     step > 1 && step < 6 ? ( // ATUALIZADO
       <button
         onClick={goBack}
-        className="absolute top-4 left-4 flex items-center text-gray-300 hover:text-yellow-500 transition-colors"
+        className="absolute top-3 left-3 sm:top-4 sm:left-4 flex items-center text-gray-300 hover:text-yellow-500 transition-colors text-sm sm:text-base"
       >
-        <ChevronLeft className="h-5 w-5 mr-1" />
-        Voltar
+        <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5 mr-1" />
+        <span className="hidden sm:inline">Voltar</span>
       </button>
     ) : null
   );
@@ -726,20 +730,20 @@ const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking }) => {
       case 1:
         return (
           <div className="animate-fade-in">
-            <h3 className="text-xl font-semibold text-white mb-4 text-center">1. Escolha o Serviço</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <h3 className="text-lg sm:text-xl font-semibold text-white mb-3 sm:mb-4 text-center">1. Escolha o Serviço</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               {SERVICES.map(service => (
                 <button
                   key={service.id}
                   onClick={() => handleSelectService(service)}
-                  className="bg-gray-700 p-4 rounded-lg shadow-lg text-left w-full hover:bg-gray-600 hover:ring-2 hover:ring-yellow-500 transition-all"
+                  className="bg-gray-700 p-3 sm:p-4 rounded-lg shadow-lg text-left w-full hover:bg-gray-600 hover:ring-2 hover:ring-yellow-500 transition-all"
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-lg font-semibold text-white">{service.name}</p>
-                      <p className="text-sm text-gray-300">{service.duration} min | R$ {service.price.toFixed(2)}</p>
+                      <p className="text-base sm:text-lg font-semibold text-white">{service.name}</p>
+                      <p className="text-xs sm:text-sm text-gray-300">{service.duration} min | R$ {service.price.toFixed(2)}</p>
                     </div>
-                    <service.icon className="h-8 w-8 text-yellow-500" />
+                    <service.icon className="h-6 w-6 sm:h-8 sm:w-8 text-yellow-500" />
                   </div>
                 </button>
               ))}
@@ -751,23 +755,23 @@ const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking }) => {
       case 2:
         return (
           <div className="animate-fade-in">
-            <h3 className="text-xl font-semibold text-white mb-4 text-center">2. Escolha o Barbeiro</h3>
-            <p className="text-center text-gray-400 mb-4 text-sm">Serviço: {selectedService?.name}</p>
-            <div className="grid grid-cols-2 gap-4">
+            <h3 className="text-lg sm:text-xl font-semibold text-white mb-3 sm:mb-4 text-center">2. Escolha o Barbeiro</h3>
+            <p className="text-center text-gray-400 mb-3 sm:mb-4 text-sm">Serviço: {selectedService?.name}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
               {BARBERS.map(barber => (
                 <button
                   key={barber.id}
                   onClick={() => handleSelectBarber(barber)}
-                  className={`bg-gray-700 p-4 rounded-lg shadow-lg text-center w-full hover:bg-gray-600 hover:ring-2 hover:ring-yellow-500 transition-all flex flex-col items-center ${
+                  className={`bg-gray-700 p-3 sm:p-4 rounded-lg shadow-lg text-center w-full hover:bg-gray-600 hover:ring-2 hover:ring-yellow-500 transition-all flex flex-col items-center ${
                     selectedBarber?.id === barber.id ? 'ring-2 ring-yellow-500' : ''
                   }`}
                 >
                   <img 
                     src={barber.avatar} 
                     alt={barber.name} 
-                    className="w-16 h-16 rounded-full border-2 border-yellow-500 mb-3"
+                    className="w-12 h-12 sm:w-16 sm:h-16 rounded-full border-2 border-yellow-500 mb-2 sm:mb-3"
                   />
-                  <p className="text-lg font-semibold text-white">{barber.name}</p>
+                  <p className="text-base sm:text-lg font-semibold text-white">{barber.name}</p>
                 </button>
               ))}
             </div>
@@ -960,25 +964,28 @@ const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking }) => {
   };
   
   return (
-    <div className="bg-gray-800 p-4 md:p-6 rounded-lg shadow-xl relative animate-fade-in">
+    <div className="bg-gray-800 p-3 sm:p-4 md:p-6 rounded-lg shadow-xl relative animate-fade-in mx-2 sm:mx-4">
       <BackButton />
       {/* Indicador de Passos */}
       {step < 6 && ( // ATUALIZADO
-        <div className="mb-4">
+        <div className="mb-3 sm:mb-4">
           <div className="flex justify-between items-center mb-1">
             {stepNames.map((name, index) => (
               <span 
                 key={index}
-                className={`text-xs ${index + 1 <= step ? 'text-yellow-500' : 'text-gray-500'}`}
+                className={`text-xs sm:text-sm ${index + 1 <= step ? 'text-yellow-500' : 'text-gray-500'} hidden sm:block`}
               >
                 {name}
               </span>
             ))}
+            <span className="text-xs sm:text-sm text-yellow-500 sm:hidden">
+              Passo {step} de 5
+            </span>
           </div>
           <div className="w-full bg-gray-700 rounded-full h-2">
             <div 
               className="bg-yellow-500 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${(step / 5) * 100}%` }} // ATUALIZADO
+              style={{ width: `${(step / 5) * 100}%` }}
             ></div>
           </div>
         </div>
