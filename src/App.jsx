@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   CheckCircle, 
   Calendar, 
@@ -28,8 +28,38 @@ import {
   Zap,         // NOVO - para promoções
 } from 'lucide-react';
 
+// Firebase imports
+import { initializeApp } from 'firebase/app';
+import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, where, setDoc, getDoc, getDocs, writeBatch } from 'firebase/firestore';
+
+// Firebase Configuration - Configuração corrigida com chaves reais
+const firebaseConfig = {
+  apiKey: "AIzaSyDGL3_RTuISqGAss08kImIsgtRklTGs29k",
+  authDomain: "barbearia-oficial.firebaseapp.com",
+  projectId: "barbearia-oficial",
+  storageBucket: "barbearia-oficial.firebasestorage.app",
+  messagingSenderId: "900174786749",
+  appId: "1:900174786749:web:40e1152bd8184c0e02c7d4"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// Constantes para estrutura de dados
+const APP_ID = "barbearia-app";
+const COLLECTIONS = {
+  BOOKINGS: "bookings",
+  ADMINS: "admins",
+  SERVICES: "services",
+  BARBERS: "barbers",
+  SCHEDULES: "schedules"
+};
+
 // --- Sistema de Barbearia ---
-// Aplicação funcionando apenas com dados locais
+// Aplicação funcionando com Firebase real
 
 // --- Dados Fictícios (Hardcoded) ---
 // No mundo real, isso viria do Firestore, mas para V1 é mais fácil assim.
@@ -48,37 +78,223 @@ const BARBERS = [
 ];
 
 // Sistema de armazenamento local
-const STORAGE_KEYS = {
-  BOOKINGS: 'barbershop_bookings',
-  CLIENTS: 'barbershop_clients',
-  SETTINGS: 'barbershop_settings'
-};
-
-// Funções para gerenciar localStorage
-const saveToStorage = (key, data) => {
-  try {
-    localStorage.setItem(key, JSON.stringify(data));
-  } catch (error) {
-    console.error('Erro ao salvar no localStorage:', error);
-  }
-};
-
-const loadFromStorage = (key, defaultValue = []) => {
-  try {
-    const data = localStorage.getItem(key);
-    return data ? JSON.parse(data) : defaultValue;
-  } catch (error) {
-    console.error('Erro ao carregar do localStorage:', error);
-    return defaultValue;
-  }
-};
+// Funções de localStorage removidas - agora usando Firebase
 
 // Função para gerar ID único
 const generateId = () => {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
 };
 
+// Funções auxiliares para estrutura de dados Firebase
+const getCollectionPath = (collectionName) => {
+  return `artifacts/${APP_ID}/public/data/${collectionName}`;
+};
+
+// Função removida - não utilizada
+
+// Função para aguardar autenticação
+const waitForAuth = () => {
+  return new Promise((resolve, reject) => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      unsubscribe();
+      if (user) {
+        resolve(user);
+      } else {
+        reject(new Error('Usuário não autenticado'));
+      }
+    });
+  });
+};
+
+// Função para garantir que o documento existe antes de atualizar
+const ensureDocumentExists = async (collectionName, documentId, defaultData) => {
+  try {
+    const collectionPath = getCollectionPath(collectionName);
+    const docRef = doc(db, collectionPath, documentId);
+    
+    // Verificar se o documento existe
+    const docSnap = await getDoc(docRef);
+    
+    if (!docSnap.exists()) {
+      console.log(`📝 Documento ${documentId} não existe, criando com dados padrão...`);
+      // Criar documento com dados padrão
+      await setDoc(docRef, {
+        ...defaultData,
+        id: documentId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }, { merge: true });
+      console.log(`✅ Documento ${documentId} criado com sucesso`);
+    } else {
+      console.log(`✅ Documento ${documentId} já existe`);
+    }
+    
+    return docRef;
+  } catch (error) {
+    console.error(`❌ Erro ao verificar/criar documento ${documentId}:`, error);
+    throw error;
+  }
+};
+
+// Função para remover duplicatas e verificar integridade dos dados
+const cleanBookingsData = (bookings) => {
+  try {
+    console.log("🧹 Limpando dados de agendamentos...");
+    
+    // Verificar se bookings é um array válido
+    if (!Array.isArray(bookings)) {
+      console.warn("⚠️ Dados de agendamentos não são um array válido");
+      return [];
+    }
+    
+    // Mapear para rastrear duplicatas
+    const seenIds = new Set();
+    const duplicateIds = new Set();
+    const cleanedBookings = [];
+    
+    bookings.forEach((booking, index) => {
+      // Verificar se o booking tem ID válido
+      if (!booking.id) {
+        console.warn(`⚠️ Agendamento sem ID encontrado no índice ${index}:`, booking);
+        return; // Pular agendamentos sem ID
+      }
+      
+      // Verificar se o ID já foi visto
+      if (seenIds.has(booking.id)) {
+        console.error(`❌ Duplicata encontrada - ID: ${booking.id}`);
+        duplicateIds.add(booking.id);
+        return; // Pular duplicatas
+      }
+      
+      // Adicionar ID ao conjunto de IDs vistos
+      seenIds.add(booking.id);
+      
+      // Verificar se o booking tem dados essenciais
+      if (!booking.serviceName || !booking.clientName || !booking.barberName) {
+        console.warn(`⚠️ Agendamento com dados incompletos - ID: ${booking.id}`);
+        return; // Pular agendamentos com dados incompletos
+      }
+      
+      // Adicionar booking limpo ao array
+      cleanedBookings.push(booking);
+    });
+    
+    // Log dos resultados
+    const originalCount = bookings.length;
+    const cleanedCount = cleanedBookings.length;
+    const duplicatesCount = duplicateIds.size;
+    
+    console.log(`✅ Limpeza concluída:`);
+    console.log(`   - Original: ${originalCount} agendamentos`);
+    console.log(`   - Limpo: ${cleanedCount} agendamentos`);
+    console.log(`   - Duplicatas removidas: ${duplicatesCount}`);
+    
+    if (duplicatesCount > 0) {
+      console.error(`❌ Duplicatas encontradas: ${Array.from(duplicateIds).join(', ')}`);
+    }
+    
+    return cleanedBookings;
+    
+  } catch (error) {
+    console.error("❌ Erro ao limpar dados de agendamentos:", error);
+    return [];
+  }
+};
+
+// Função para excluir todos os dados do sistema (reutilizável)
+const deleteAllData = async (onProgress, onSuccess, onError) => {
+  try {
+    console.log("🗑️ Iniciando exclusão de todos os dados...");
+    
+    // Aguardar autenticação estar pronta
+    await waitForAuth();
+    
+    const collectionsToDelete = [
+      COLLECTIONS.BOOKINGS,
+      COLLECTIONS.ADMINS,
+      COLLECTIONS.SERVICES,
+      COLLECTIONS.BARBERS
+    ];
+    
+    let totalDeleted = 0;
+    let totalErrors = 0;
+    
+    for (const collectionName of collectionsToDelete) {
+      try {
+        onProgress(`Excluindo dados de ${collectionName}...`);
+        
+        const collectionPath = getCollectionPath(collectionName);
+        const collectionRef = collection(db, collectionPath);
+        
+        // Buscar todos os documentos da coleção
+        const querySnapshot = await getDocs(collectionRef);
+        
+        if (querySnapshot.empty) {
+          console.log(`📭 Coleção ${collectionName} já está vazia`);
+          continue;
+        }
+        
+        // Usar batch para deletar múltiplos documentos
+        const batch = writeBatch(db);
+        querySnapshot.docs.forEach((docSnapshot) => {
+          batch.delete(docSnapshot.ref);
+        });
+        
+        // Executar batch
+        await batch.commit();
+        
+        const deletedCount = querySnapshot.docs.length;
+        totalDeleted += deletedCount;
+        
+        console.log(`✅ Excluídos ${deletedCount} documentos de ${collectionName}`);
+        
+      } catch (collectionError) {
+        console.error(`❌ Erro ao excluir coleção ${collectionName}:`, collectionError);
+        totalErrors++;
+      }
+    }
+    
+    if (totalErrors === 0) {
+      console.log(`🎉 Exclusão concluída! Total de documentos excluídos: ${totalDeleted}`);
+      onSuccess(`Dados excluídos com sucesso! ${totalDeleted} documentos removidos.`);
+    } else {
+      console.log(`⚠️ Exclusão concluída com ${totalErrors} erros. Total excluído: ${totalDeleted}`);
+      onSuccess(`Exclusão concluída com avisos. ${totalDeleted} documentos removidos, ${totalErrors} erros.`);
+    }
+    
+  } catch (error) {
+    console.error("❌ Erro crítico na exclusão de dados:", error);
+    onError(`Erro ao excluir dados: ${error.message}`);
+  }
+};
+
 // Função para adicionar evento ao calendário do celular
+// Gerar URL para diferentes tipos de calendário (helper global)
+const generateCalendarUrlHelper = (type, eventDetails, startFormatted, endFormatted) => {
+  const baseUrl = type === 'google' 
+    ? 'https://calendar.google.com/calendar/render'
+    : type === 'outlook'
+    ? 'https://outlook.live.com/calendar/0/deeplink/compose'
+    : null;
+  
+  if (!baseUrl) return null;
+  
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: eventDetails.title,
+    dates: `${startFormatted}/${endFormatted}`,
+    details: eventDetails.description,
+    location: eventDetails.location,
+    trp: 'false',
+    ...(type === 'google' && { 
+      remind: eventDetails.reminder,
+      remindUnit: 'minutes'
+    })
+  });
+  
+  return `${baseUrl}?${params.toString()}`;
+};
+
 const addToCalendar = (booking) => {
   const startDate = new Date(booking.startTime);
   const endDate = new Date(booking.endTime);
@@ -101,31 +317,8 @@ const addToCalendar = (booking) => {
     reminder: '20' // 20 minutos antes
   };
   
-  // Gerar URL para diferentes tipos de calendário
-  const generateCalendarUrl = (type) => {
-    const baseUrl = type === 'google' 
-      ? 'https://calendar.google.com/calendar/render'
-      : type === 'outlook'
-      ? 'https://outlook.live.com/calendar/0/deeplink/compose'
-      : null;
-    
-    if (!baseUrl) return null;
-    
-    const params = new URLSearchParams({
-      action: 'TEMPLATE',
-      text: eventDetails.title,
-      dates: `${startFormatted}/${endFormatted}`,
-      details: eventDetails.description,
-      location: eventDetails.location,
-      trp: 'false',
-      ...(type === 'google' && { 
-        remind: eventDetails.reminder,
-        remindUnit: 'minutes'
-      })
-    });
-    
-    return `${baseUrl}?${params.toString()}`;
-  };
+  // Usar a função helper global
+  const generateCalendarUrl = (type) => generateCalendarUrlHelper(type, eventDetails, startFormatted, endFormatted);
   
   // Detectar o dispositivo e abrir o calendário apropriado
   const userAgent = navigator.userAgent.toLowerCase();
@@ -196,36 +389,62 @@ const downloadICS = (content, filename) => {
 const showCalendarOptions = (eventDetails, bookingId) => {
   const modal = document.createElement('div');
   modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
-  modal.innerHTML = `
-    <div class="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-xl max-w-md w-full">
-      <h3 class="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4">Adicionar ao Calendário</h3>
-      <p class="text-gray-300 mb-4 text-sm sm:text-base">Escolha como deseja adicionar o agendamento ao seu calendário:</p>
-      <div class="space-y-3">
-        <button onclick="window.open('${generateCalendarUrl('google')}', '_blank'); this.closest('.fixed').remove();" 
-                class="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-500 transition-colors text-sm sm:text-base">
-          📅 Google Calendar
-        </button>
-        <button onclick="window.open('${generateCalendarUrl('outlook')}', '_blank'); this.closest('.fixed').remove();" 
-                class="w-full bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-400 transition-colors text-sm sm:text-base">
-          📅 Outlook Calendar
-        </button>
-        <button onclick="downloadICS('${generateICSContent(eventDetails).replace(/'/g, "\\'")}', 'agendamento-${bookingId}.ics'); this.closest('.fixed').remove();" 
-                class="w-full bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-500 transition-colors text-sm sm:text-base">
-          📥 Download (.ics)
-        </button>
-        <button onclick="this.closest('.fixed').remove();" 
-                class="w-full bg-gray-700 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors text-sm sm:text-base">
-          Cancelar
-        </button>
-      </div>
-      <div class="mt-4 p-3 bg-blue-900 bg-opacity-30 border border-blue-500 rounded-lg">
-        <p class="text-blue-200 text-xs sm:text-sm">
-          💡 O lembrete será configurado para 20 minutos antes do horário do agendamento.
-        </p>
-      </div>
+  
+  const modalContent = document.createElement('div');
+  modalContent.className = 'bg-gray-800 p-4 sm:p-6 rounded-lg shadow-xl max-w-md w-full';
+  
+  modalContent.innerHTML = `
+    <h3 class="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4">Adicionar ao Calendário</h3>
+    <p class="text-gray-300 mb-4 text-sm sm:text-base">Escolha como deseja adicionar o agendamento ao seu calendário:</p>
+    <div class="space-y-3">
+      <button id="googleCalBtn" class="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-500 transition-colors text-sm sm:text-base">
+        📅 Google Calendar
+      </button>
+      <button id="outlookCalBtn" class="w-full bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-400 transition-colors text-sm sm:text-base">
+        📅 Outlook Calendar
+      </button>
+      <button id="downloadIcsBtn" class="w-full bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-500 transition-colors text-sm sm:text-base">
+        📥 Download (.ics)
+      </button>
+      <button id="cancelBtn" class="w-full bg-gray-700 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors text-sm sm:text-base">
+        Cancelar
+      </button>
+    </div>
+    <div class="mt-4 p-3 bg-blue-900 bg-opacity-30 border border-blue-500 rounded-lg">
+      <p class="text-blue-200 text-xs sm:text-sm">
+        💡 O lembrete será configurado para 20 minutos antes do horário do agendamento.
+      </p>
     </div>
   `;
+  
+  modal.appendChild(modalContent);
   document.body.appendChild(modal);
+  
+  // Adicionar event listeners
+  const startFormatted = eventDetails.startTime;
+  const endFormatted = eventDetails.endTime;
+  
+  document.getElementById('googleCalBtn').addEventListener('click', () => {
+    const url = generateCalendarUrlHelper('google', eventDetails, startFormatted, endFormatted);
+    window.open(url, '_blank');
+    modal.remove();
+  });
+  
+  document.getElementById('outlookCalBtn').addEventListener('click', () => {
+    const url = generateCalendarUrlHelper('outlook', eventDetails, startFormatted, endFormatted);
+    window.open(url, '_blank');
+    modal.remove();
+  });
+  
+  document.getElementById('downloadIcsBtn').addEventListener('click', () => {
+    const icsContent = generateICSContent(eventDetails);
+    downloadICS(icsContent, `agendamento-${bookingId}.ics`);
+    modal.remove();
+  });
+  
+  document.getElementById('cancelBtn').addEventListener('click', () => {
+    modal.remove();
+  });
 };
 
 const WORKING_HOURS = {
@@ -243,14 +462,47 @@ const AdminLogin = ({ onLogin }) => {
   const [credentials, setCredentials] = useState({ username: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Credenciais: admin / admin123
-    if (credentials.username === 'admin' && credentials.password === 'admin123') {
-      onLogin();
-    } else {
-      setError('Usuário ou senha incorretos. Use: admin / admin123');
+    setIsLoading(true);
+    setError('');
+    
+    try {
+      // Verificar credenciais de admin
+      if (credentials.username === 'admin' && credentials.password === 'admin123') {
+        // Aguardar autenticação estar pronta
+        await waitForAuth();
+        
+        // Dados padrão para o documento de admin
+        const defaultAdminData = {
+          id: 'main',
+          lastLogin: new Date(),
+          isActive: true,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+        
+        // Garantir que o documento existe antes de atualizar
+        const adminRef = await ensureDocumentExists(COLLECTIONS.ADMINS, 'main', defaultAdminData);
+        
+        // Atualizar o documento usando setDoc com merge
+        await setDoc(adminRef, {
+          lastLogin: new Date(),
+          isActive: true,
+          updatedAt: new Date()
+        }, { merge: true });
+        
+        onLogin();
+      } else {
+        setError('Usuário ou senha incorretos. Use: admin / admin123');
+      }
+    } catch (error) {
+      console.error('Erro no login admin:', error);
+      setError(`Erro ao fazer login: ${error.message}`);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -305,9 +557,17 @@ const AdminLogin = ({ onLogin }) => {
 
           <button
             type="submit"
-            className="w-full bg-yellow-500 text-gray-900 font-bold py-3 px-6 rounded-lg hover:bg-yellow-400 transition-all"
+            disabled={isLoading}
+            className="w-full bg-yellow-500 text-gray-900 font-bold py-3 px-6 rounded-lg hover:bg-yellow-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
           >
-            Entrar
+            {isLoading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900 mr-2"></div>
+                Entrando...
+              </>
+            ) : (
+              'Entrar'
+            )}
           </button>
         </form>
 
@@ -316,8 +576,58 @@ const AdminLogin = ({ onLogin }) => {
   );
 };
 
+// Modal de Confirmação para Exclusão de Dados
+const DeleteDataModal = ({ isOpen, onClose, onConfirm, isLoading, progressMessage }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-gray-800 rounded-lg shadow-xl max-w-md w-full">
+        <div className="p-6">
+          <div className="flex items-center mb-4">
+            <div className="bg-red-100 rounded-full p-2 mr-3">
+              <AlertCircle className="h-6 w-6 text-red-600" />
+            </div>
+            <h3 className="text-lg font-semibold text-white">Excluir Todos os Dados</h3>
+          </div>
+          
+          <p className="text-gray-300 mb-6">
+            Tem certeza que deseja excluir todos os dados? Esta ação não poderá ser desfeita.
+          </p>
+          
+          {isLoading && (
+            <div className="mb-4 p-3 bg-blue-900 rounded-lg">
+              <div className="flex items-center">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-400 mr-2"></div>
+                <span className="text-blue-200 text-sm">{progressMessage}</span>
+              </div>
+            </div>
+          )}
+          
+          <div className="flex space-x-3">
+            <button
+              onClick={onClose}
+              disabled={isLoading}
+              className="flex-1 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={onConfirm}
+              disabled={isLoading}
+              className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoading ? 'Excluindo...' : 'Excluir Tudo'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Componente de Cabeçalho
-const Header = ({ isAdmin, onLogout }) => (
+const Header = ({ isAdmin, onLogout, notifications, unreadNotifications, showNotifications, setShowNotifications, markNotificationAsRead, removeNotification, clearAllNotifications, onShowInstallInstructions, isInstalled }) => (
   <header className="w-full bg-gray-900 p-3 sm:p-4 border-b-2 border-yellow-500">
     <div className="max-w-5xl mx-auto flex items-center justify-between">
       <div className="flex items-center">
@@ -327,15 +637,118 @@ const Header = ({ isAdmin, onLogout }) => (
           <span className="sm:hidden">Barbearia</span>
       </h1>
       </div>
-      {isAdmin && (
-        <button
-          onClick={onLogout}
-          className="bg-red-600 text-white px-3 py-2 sm:px-4 rounded-lg hover:bg-red-500 transition-all flex items-center text-sm sm:text-base"
-        >
-          <X className="h-4 w-4 mr-1 sm:mr-2" />
-          <span className="hidden sm:inline">Sair</span>
-        </button>
-      )}
+      
+      <div className="flex items-center space-x-3">
+        {/* Botão de Instalação PWA */}
+        {!isInstalled && onShowInstallInstructions && (
+          <button
+            onClick={onShowInstallInstructions}
+            className="hidden sm:flex items-center space-x-2 bg-yellow-500 text-gray-900 px-3 py-2 rounded-lg hover:bg-yellow-400 transition-colors text-sm font-semibold"
+            title="Instalar App"
+          >
+            <Scissors className="h-4 w-4" />
+            <span>Instalar</span>
+          </button>
+        )}
+        
+        {/* Botão de notificações */}
+        <div className="relative">
+          <button
+            onClick={() => setShowNotifications(!showNotifications)}
+            className="relative p-2 text-gray-300 hover:text-white transition-colors"
+          >
+            <Bell className="h-6 w-6" />
+            {unreadNotifications > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                {unreadNotifications}
+              </span>
+            )}
+          </button>
+          
+          {/* Dropdown de notificações */}
+          {showNotifications && (
+            <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+              <div className="p-4 border-b border-gray-200">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-semibold text-gray-900">Notificações</h3>
+                  {notifications.length > 0 && (
+                    <button
+                      onClick={clearAllNotifications}
+                      className="text-sm text-gray-500 hover:text-gray-700"
+                    >
+                      Limpar todas
+                    </button>
+                  )}
+                </div>
+              </div>
+              
+              <div className="max-h-96 overflow-y-auto">
+                {notifications.length === 0 ? (
+                  <div className="p-4 text-center text-gray-500">
+                    Nenhuma notificação
+                  </div>
+                ) : (
+                  notifications.map((notification) => (
+                    <div
+                      key={notification.id}
+                      className={`p-4 border-b border-gray-100 hover:bg-gray-50 ${!notification.read ? 'bg-blue-50' : ''}`}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-gray-900">
+                            {notification.message}
+                          </p>
+                          
+                          {notification.details && (
+                            <div className="mt-2 text-xs text-gray-600">
+                              <p><strong>Serviço:</strong> {notification.details.service}</p>
+                              <p><strong>Barbeiro:</strong> {notification.details.barber}</p>
+                              <p><strong>Data:</strong> {notification.details.date.toLocaleDateString('pt-BR')}</p>
+                              <p><strong>Horário:</strong> {notification.details.time.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
+                              <p><strong>Valor:</strong> R$ {notification.details.price.toFixed(2)}</p>
+                            </div>
+                          )}
+                          
+                          <p className="text-xs text-gray-400 mt-1">
+                            {notification.timestamp.toLocaleString('pt-BR')}
+                          </p>
+                        </div>
+                        
+                        <div className="flex space-x-1 ml-2">
+                          {!notification.read && (
+                            <button
+                              onClick={() => markNotificationAsRead(notification.id)}
+                              className="text-xs text-blue-600 hover:text-blue-800"
+                            >
+                              Marcar como lida
+                            </button>
+                          )}
+                          <button
+                            onClick={() => removeNotification(notification.id)}
+                            className="text-xs text-red-600 hover:text-red-800"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+        
+        {isAdmin && (
+          <button
+            onClick={onLogout}
+            className="bg-red-600 text-white px-3 py-2 sm:px-4 rounded-lg hover:bg-red-500 transition-all flex items-center text-sm sm:text-base"
+          >
+            <X className="h-4 w-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">Sair</span>
+          </button>
+        )}
+      </div>
     </div>
   </header>
 );
@@ -451,7 +864,12 @@ const Navigation = ({ currentView, setCurrentView, notifications, showNotificati
 };
 
 // Componente da Tela Inicial (Home)
-const Home = ({ onBookNow }) => (
+const Home = ({ onBookNow, services, barbers }) => {
+  // Proteção contra dados undefined/null
+  const safeServices = services || [];
+  const safeBarbers = barbers || [];
+
+  return (
   <div className="animate-fade-in space-y-4 sm:space-y-6 p-4 sm:p-6">
     <div className="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-xl text-center">
       <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2 sm:mb-3">Bem-vindo à Navalha Dourada!</h2>
@@ -467,39 +885,53 @@ const Home = ({ onBookNow }) => (
     <div className="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-xl">
       <h3 className="text-xl sm:text-2xl font-semibold text-white mb-3 sm:mb-4 border-l-4 border-yellow-500 pl-3">Nossos Serviços</h3>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-        {SERVICES.map(service => (
-          <div key={service.id} className="bg-gray-700 p-3 sm:p-4 rounded-lg text-center shadow-md">
-            <service.icon className="h-6 w-6 sm:h-8 sm:w-8 text-yellow-500 mx-auto mb-2" />
-            <p className="font-semibold text-white text-sm sm:text-base">{service.name}</p>
-            <p className="text-xs sm:text-sm text-gray-300">R$ {service.price.toFixed(2)}</p>
+        {safeServices.length > 0 ? (
+          safeServices.map(service => (
+            <div key={service.id} className="bg-gray-700 p-3 sm:p-4 rounded-lg text-center shadow-md">
+              <Scissors className="h-6 w-6 sm:h-8 sm:w-8 text-yellow-500 mx-auto mb-2" />
+              <p className="font-semibold text-white text-sm sm:text-base">{service?.name || 'Serviço'}</p>
+              <p className="text-xs sm:text-sm text-gray-300">R$ {(service?.price || 0).toFixed(2)}</p>
+              <p className="text-xs text-gray-400">{service?.duration || 30} min</p>
+            </div>
+          ))
+        ) : (
+          <div className="col-span-full text-center py-8">
+            <p className="text-gray-400">Carregando serviços...</p>
           </div>
-        ))}
+        )}
       </div>
     </div>
     
     <div className="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-xl">
       <h3 className="text-xl sm:text-2xl font-semibold text-white mb-3 sm:mb-4 border-l-4 border-yellow-500 pl-3">Nossa Equipe</h3>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-        {BARBERS.map(barber => (
-          <div key={barber.id} className="bg-gray-700 p-4 rounded-lg text-center shadow-md">
-            <img 
-              src={barber.avatar}
-              alt={barber.name}
-              className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-4 border-yellow-500 mb-3 mx-auto object-cover"
-            />
-            <p className="text-base sm:text-lg font-medium text-white">{barber.name}</p>
-            <p className="text-xs sm:text-sm text-gray-400">{barber.specialty}</p>
-            <div className="flex items-center justify-center mt-2">
-              <Star className="h-4 w-4 text-yellow-500 mr-1" />
-              <span className="text-xs sm:text-sm text-gray-300">{barber.rating}</span>
-              <span className="text-xs text-gray-500 ml-2">({barber.experience})</span>
+        {safeBarbers.length > 0 ? (
+          safeBarbers.filter(barber => barber?.isActive !== false).map(barber => (
+            <div key={barber.id} className="bg-gray-700 p-4 rounded-lg text-center shadow-md">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-yellow-500 rounded-full mx-auto mb-3 flex items-center justify-center">
+                <span className="text-gray-900 font-bold text-lg sm:text-xl">{(barber?.name || 'B').charAt(0)}</span>
+              </div>
+              <p className="text-base sm:text-lg font-medium text-white">{barber?.name || 'Barbeiro'}</p>
+              <p className="text-xs sm:text-sm text-gray-400">
+                {barber?.specialties && barber.specialties.length > 0 ? barber.specialties.join(', ') : 'Barbeiro'}
+              </p>
+              <div className="flex items-center justify-center mt-2">
+                <Star className="h-4 w-4 text-yellow-500 mr-1" />
+                <span className="text-xs sm:text-sm text-gray-300">{(barber?.rating || 5.0).toFixed(1)}</span>
+                <span className="text-xs text-gray-500 ml-2">({barber?.experience || 'Experiência'})</span>
+              </div>
             </div>
+          ))
+        ) : (
+          <div className="col-span-full text-center py-8">
+            <p className="text-gray-400">Carregando barbeiros...</p>
           </div>
-        ))}
+        )}
       </div>
     </div>
   </div>
-);
+  );
+};
 
 // Componente de Serviços Detalhados
 const ServicesView = () => (
@@ -698,7 +1130,7 @@ const generateTimeSlots = (selectedDate, serviceDuration, existingBookings) => {
 
 
 // --- Componente Principal do Fluxo de Agendamento ---
-const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking }) => {
+const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking, services, barbers }) => {
   const [step, setStep] = useState(1);
   const [selectedService, setSelectedService] = useState(null);
   const [selectedBarber, setSelectedBarber] = useState(null); // NOVO ESTADO
@@ -710,9 +1142,16 @@ const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking }) => {
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
+  const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
   
+  // Proteção contra dados undefined/null
+  const safeServices = services || [];
+  const safeBarbers = barbers || [];
+  // safeBookings definido mas usado em outros componentes via props
+
   // Nomes dos Passos
-  const stepNames = ["Serviço", "Barbeiro", "Data", "Horário", "Confirmação"]; // ATUALIZADO
+  const stepNames = ["Serviço", "Barbeiro", "Data", "Horário", "Confirmação"];
   
   // Datas disponíveis (próximos 7 dias, filtrando dias fechados)
   const availableDates = useMemo(() => {
@@ -751,11 +1190,11 @@ const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking }) => {
                b.barberId === selectedBarber.id;
       });
       
-      const slots = generateTimeSlots(selectedDate, selectedService.duration, bookingsForDayAndBarber); // ATUALIZADO
+      const slots = generateTimeSlots(selectedDate, selectedService?.duration || 30, bookingsForDayAndBarber);
       setAvailableSlots(slots);
       setIsLoadingSlots(false);
     }
-  }, [selectedDate, selectedService, selectedBarber, bookings]); // ATUALIZADO
+  }, [selectedDate, selectedService, selectedBarber, bookings]);
 
   // Funções de Seleção
   const handleSelectService = (service) => {
@@ -800,47 +1239,85 @@ const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking }) => {
   const handleSubmitBooking = async (e) => {
     e.preventDefault();
     
-    if (!clientInfo.name || !clientInfo.phone) {
-      setErrorMessage("Por favor, preencha seu nome e telefone.");
-      return;
-    }
-    
-    setIsSubmitting(true);
-    setErrorMessage(null);
-    
-    const startTime = selectedTime;
-    const endTime = new Date(startTime.getTime() + selectedService.duration * 60000);
-    
-    const newBooking = {
-      id: generateId(),
-      userId: userId,
-      serviceId: selectedService.id,
-      serviceName: selectedService.name,
-      duration: selectedService.duration,
-      barberId: selectedBarber.id,
-      barberName: selectedBarber.name,
-      date: new Date(selectedDate.setHours(0,0,0,0)),
-      startTime: startTime,
-      endTime: endTime,
-      clientName: clientInfo.name,
-      clientPhone: clientInfo.phone,
-      createdAt: new Date(),
-      status: 'confirmed',
-      price: selectedService.price
-    };
-    
     try {
-      // Adiciona o novo agendamento via callback
-      onAddBooking(newBooking);
+      // Validações de segurança
+      if (!selectedService || !selectedBarber || !selectedDate || !selectedTime) {
+        setError('Dados de agendamento incompletos. Por favor, selecione todos os campos obrigatórios.');
+        return;
+      }
+
+      if (!clientInfo?.name?.trim()) {
+        setError('Nome do cliente é obrigatório.');
+        return;
+      }
+
+      if (!clientInfo?.phone?.trim()) {
+        setError('Telefone do cliente é obrigatório.');
+        return;
+      }
+
+      if (!userId) {
+        setError('Usuário não autenticado. Por favor, recarregue a página.');
+        return;
+      }
       
-      // Sucesso
+      setIsSubmitting(true);
+      setError(null);
+      setErrorMessage(null);
+      setIsLoading(true);
+      
+      const startTime = selectedTime;
+      const serviceDuration = selectedService?.duration || 30;
+      const endTime = new Date(startTime.getTime() + serviceDuration * 60000);
+      
+      const newBooking = {
+        id: generateId(),
+        userId: userId,
+        serviceId: selectedService.id || 'unknown',
+        serviceName: selectedService.name || 'Serviço',
+        duration: serviceDuration,
+        barberId: selectedBarber.id || 'unknown',
+        barberName: selectedBarber.name || 'Barbeiro',
+        date: new Date(selectedDate.setHours(0,0,0,0)),
+        startTime: startTime,
+        endTime: endTime,
+        clientName: clientInfo.name.trim(),
+        clientPhone: clientInfo.phone.trim(),
+        createdAt: new Date(),
+        status: 'confirmed',
+        price: selectedService.price || 0
+      };
+      
+      console.log("🚀 Iniciando agendamento:", newBooking);
+      
+      // Adiciona o novo agendamento via callback
+      await onAddBooking(newBooking);
+      
+      console.log("✅ Agendamento criado com sucesso");
       setStep(6); // Vai para a tela de confirmação
       
     } catch (error) {
-      console.error("Erro ao salvar agendamento:", error);
-      setErrorMessage("Não foi possível realizar o agendamento. Tente novamente.");
+      console.error("❌ Erro ao salvar agendamento:", error);
+      
+      // Mensagens de erro amigáveis
+      let errorMessage = 'Não foi possível realizar o agendamento. Tente novamente.';
+      
+      if (error.message?.includes('permission')) {
+        errorMessage = 'Erro de permissão. Verifique sua conexão e tente novamente.';
+      } else if (error.message?.includes('network')) {
+        errorMessage = 'Erro de conexão. Verifique sua internet e tente novamente.';
+      } else if (error.message?.includes('quota')) {
+        errorMessage = 'Limite de agendamentos atingido. Tente novamente mais tarde.';
+      } else if (error.message?.includes('auth')) {
+        errorMessage = 'Erro de autenticação. Recarregue a página e tente novamente.';
+      }
+      
+      setError(errorMessage);
+      setErrorMessage(errorMessage);
+      
     } finally {
       setIsSubmitting(false);
+      setIsLoading(false);
     }
   };
   
@@ -882,21 +1359,27 @@ const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking }) => {
           <div className="animate-fade-in">
             <h3 className="text-lg sm:text-xl font-semibold text-white mb-3 sm:mb-4 text-center">1. Escolha o Serviço</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-              {SERVICES.map(service => (
-                <button
-                  key={service.id}
-                  onClick={() => handleSelectService(service)}
-                  className="bg-gray-700 p-3 sm:p-4 rounded-lg shadow-lg text-left w-full hover:bg-gray-600 hover:ring-2 hover:ring-yellow-500 transition-all"
-                >
+              {safeServices.length > 0 ? (
+                safeServices.map(service => (
+                  <button
+                    key={service.id}
+                    onClick={() => handleSelectService(service)}
+                    className="bg-gray-700 p-3 sm:p-4 rounded-lg shadow-lg text-left w-full hover:bg-gray-600 hover:ring-2 hover:ring-yellow-500 transition-all"
+                  >
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-base sm:text-lg font-semibold text-white">{service.name}</p>
-                      <p className="text-xs sm:text-sm text-gray-300">{service.duration} min | R$ {service.price.toFixed(2)}</p>
+                      <p className="text-base sm:text-lg font-semibold text-white">{service?.name || 'Serviço'}</p>
+                      <p className="text-xs sm:text-sm text-gray-300">{(service?.duration || 30)} min | R$ {(service?.price || 0).toFixed(2)}</p>
                     </div>
-                    <service.icon className="h-6 w-6 sm:h-8 sm:w-8 text-yellow-500" />
+                    <Scissors className="h-6 w-6 sm:h-8 sm:w-8 text-yellow-500" />
                   </div>
                 </button>
-              ))}
+                ))
+              ) : (
+                <div className="col-span-full text-center py-8">
+                  <p className="text-gray-400">Carregando serviços...</p>
+                </div>
+              )}
             </div>
           </div>
         );
@@ -908,22 +1391,33 @@ const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking }) => {
             <h3 className="text-lg sm:text-xl font-semibold text-white mb-3 sm:mb-4 text-center">2. Escolha o Barbeiro</h3>
             <p className="text-center text-gray-400 mb-3 sm:mb-4 text-sm">Serviço: {selectedService?.name}</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-              {BARBERS.map(barber => (
-                <button
-                  key={barber.id}
-                  onClick={() => handleSelectBarber(barber)}
-                  className={`bg-gray-700 p-3 sm:p-4 rounded-lg shadow-lg text-center w-full hover:bg-gray-600 hover:ring-2 hover:ring-yellow-500 transition-all flex flex-col items-center ${
+              {safeBarbers.length > 0 ? (
+                safeBarbers.filter(barber => barber?.isActive !== false).map(barber => (
+                  <button
+                    key={barber.id}
+                    onClick={() => handleSelectBarber(barber)}
+                    className={`bg-gray-700 p-3 sm:p-4 rounded-lg shadow-lg text-center w-full hover:bg-gray-600 hover:ring-2 hover:ring-yellow-500 transition-all flex flex-col items-center ${
                     selectedBarber?.id === barber.id ? 'ring-2 ring-yellow-500' : ''
                   }`}
                 >
-                  <img 
-                    src={barber.avatar} 
-                    alt={barber.name} 
-                    className="w-12 h-12 sm:w-16 sm:h-16 rounded-full border-2 border-yellow-500 mb-2 sm:mb-3"
-                  />
-                  <p className="text-base sm:text-lg font-semibold text-white">{barber.name}</p>
-                </button>
-              ))}
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-yellow-500 rounded-full mb-2 sm:mb-3 flex items-center justify-center">
+                      <span className="text-gray-900 font-bold text-lg sm:text-xl">{(barber?.name || 'B').charAt(0)}</span>
+                    </div>
+                    <p className="text-base sm:text-lg font-semibold text-white">{barber?.name || 'Barbeiro'}</p>
+                    <p className="text-gray-400 text-xs sm:text-sm">
+                      {barber?.specialties && barber.specialties.length > 0 ? barber.specialties.join(', ') : 'Barbeiro'}
+                    </p>
+                    <div className="flex items-center mt-1">
+                      <Star className="h-3 w-3 sm:h-4 sm:w-4 text-yellow-400 mr-1" />
+                      <span className="text-yellow-400 text-xs sm:text-sm font-semibold">{(barber?.rating || 5.0).toFixed(1)}</span>
+                    </div>
+                  </button>
+                ))
+              ) : (
+                <div className="col-span-full text-center py-8">
+                  <p className="text-gray-400">Carregando barbeiros...</p>
+                </div>
+              )}
             </div>
           </div>
         );
@@ -1038,16 +1532,16 @@ const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking }) => {
                 </div>
               </div>
               
-              {errorMessage && (
-                <p className="text-red-400 text-center mt-4 text-sm">{errorMessage}</p>
+              {(error || errorMessage) && (
+                <p className="text-red-400 text-center mt-4 text-sm">{error || errorMessage}</p>
               )}
               
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || isLoading}
                 className="w-full bg-green-600 text-white font-bold py-3 px-6 rounded-lg mt-6 hover:bg-green-500 transition-all disabled:bg-gray-500"
               >
-                {isSubmitting ? 'Confirmando...' : 'Confirmar Agendamento'}
+                {(isSubmitting || isLoading) ? 'Confirmando...' : 'Confirmar Agendamento'}
               </button>
             </form>
           </div>
@@ -1077,15 +1571,15 @@ const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking }) => {
             </div>
             <h3 className="text-2xl font-bold text-white mb-3">Agendamento Confirmado!</h3>
             <div className="bg-gray-700 p-4 rounded-lg mb-6 text-left">
-              <p className="text-lg text-white font-semibold mb-2">{selectedService.name}</p>
+              <p className="text-lg text-white font-semibold mb-2">{selectedService?.name || 'Serviço'}</p>
               <p className="text-gray-300 mb-1">
-                <span className="font-medium">Data:</span> {selectedDate.toLocaleDateString('pt-BR')}
+                <span className="font-medium">Data:</span> {selectedDate?.toLocaleDateString('pt-BR') || 'Data não selecionada'}
               </p>
               <p className="text-gray-300 mb-1">
-                <span className="font-medium">Hora:</span> {selectedTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                <span className="font-medium">Hora:</span> {selectedTime?.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) || 'Horário não selecionado'}
               </p>
               <p className="text-gray-300">
-                <span className="font-medium">Cliente:</span> {clientInfo.name}
+                <span className="font-medium">Cliente:</span> {clientInfo?.name || 'Cliente'}
               </p>
             </div>
             <p className="text-gray-300 mb-4">Te esperamos! Você pode ver seus horários na aba "Meus Horários".</p>
@@ -1102,12 +1596,12 @@ const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking }) => {
               onClick={() => {
                 const bookingData = {
                   id: generateId(),
-                  serviceName: selectedService.name,
+                  serviceName: selectedService?.name || 'Serviço',
                   barberName: selectedBarber?.name || 'Barbeiro',
-                  clientName: clientInfo.name,
-                  price: selectedService.price,
-                  startTime: new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), selectedTime.getHours(), selectedTime.getMinutes()),
-                  endTime: new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), selectedTime.getHours(), selectedTime.getMinutes() + selectedService.duration)
+                  clientName: clientInfo?.name || 'Cliente',
+                  price: selectedService?.price || 0,
+                  startTime: new Date(selectedDate?.getFullYear() || new Date().getFullYear(), selectedDate?.getMonth() || new Date().getMonth(), selectedDate?.getDate() || new Date().getDate(), selectedTime?.getHours() || 9, selectedTime?.getMinutes() || 0),
+                  endTime: new Date(selectedDate?.getFullYear() || new Date().getFullYear(), selectedDate?.getMonth() || new Date().getMonth(), selectedDate?.getDate() || new Date().getDate(), selectedTime?.getHours() || 9, (selectedTime?.getMinutes() || 0) + (selectedService?.duration || 30))
                 };
                 addToCalendar(bookingData);
               }}
@@ -1290,21 +1784,24 @@ const TodaysBookingsList = ({ bookings, isLoading, onComplete }) => {
 };
 
 
-// Card de Estatística
-const StatCard = ({ title, value, icon: Icon, colorClass = 'text-yellow-500' }) => (
+// Card de Estatística  
+const StatCard = ({ title, value, icon, colorClass = 'text-yellow-500' }) => {
+  const IconComponent = icon;
+  return (
   <div className="bg-gray-700 p-4 rounded-lg shadow-lg flex items-center">
     <div className={`p-3 rounded-full ${colorClass.replace('text-', 'bg-').replace('500', '500')} bg-opacity-20 mr-4`}>
-      <Icon className={`h-6 w-6 ${colorClass}`} />
+      <IconComponent className={`h-6 w-6 ${colorClass}`} />
     </div>
     <div>
       <p className="text-sm text-gray-400 font-medium">{title}</p>
       <p className="text-2xl font-bold text-white">{value}</p>
     </div>
   </div>
-);
+  );
+};
 
-// Formulário de Adicionar Corte Avulso
-const AddWalkInForm = ({ userId, onAddBooking }) => {
+// Formulário de Adicionar Corte Avulso (DESABILITADO - não utilizado)
+const AddWalkInForm = ({ services, barbers, userId, onAddBooking }) => {
   const [serviceId, setServiceId] = useState(SERVICES[0].id);
   const [barberId, setBarberId] = useState(BARBERS[0].id);
   const [price, setPrice] = useState(SERVICES[0].price);
@@ -1377,7 +1874,11 @@ const AddWalkInForm = ({ userId, onAddBooking }) => {
             onChange={handleServiceChange}
             className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
           >
-            {SERVICES.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            {services.length > 0 ? (
+              services.map(s => <option key={s.id} value={s.id}>{s.name} - R$ {s.price.toFixed(2)}</option>)
+            ) : (
+              <option value="">Carregando serviços...</option>
+            )}
           </select>
         </div>
         <div>
@@ -1388,7 +1889,11 @@ const AddWalkInForm = ({ userId, onAddBooking }) => {
             onChange={(e) => setBarberId(e.target.value)}
             className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
           >
-            {BARBERS.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+            {barbers.length > 0 ? (
+              barbers.filter(b => b.isActive).map(b => <option key={b.id} value={b.name}>{b.name}</option>)
+            ) : (
+              <option value="">Carregando barbeiros...</option>
+            )}
           </select>
         </div>
         <div>
@@ -1428,8 +1933,8 @@ const AddWalkInForm = ({ userId, onAddBooking }) => {
   );
 };
 
-// Componente do Dashboard (Admin)
-const DashboardView = ({ todayBookings, isLoadingTodayBookings, history, isLoading, userId, onAddBooking }) => {
+// Componente do Dashboard (Admin) - DESABILITADO
+const DashboardView = ({ todayBookings, isLoadingTodayBookings, history, isLoading }) => {
   const [timeFilter, setTimeFilter] = useState('month'); // 'day', 'week', 'month'
 
   // Lógica de cálculo (useMemo)
@@ -1581,8 +2086,7 @@ const DashboardView = ({ todayBookings, isLoadingTodayBookings, history, isLoadi
         </div>
       </div>
 
-      {/* Formulário de Walk-in */}
-      <AddWalkInForm userId={userId} onAddBooking={onAddBooking} />
+      {/* Formulário de Walk-in removido - funcionalidade disponível na tela de agendamentos */}
 
       {/* Histórico Recente */}
       <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
@@ -1605,6 +2109,11 @@ const DashboardView = ({ todayBookings, isLoadingTodayBookings, history, isLoadi
 // Dashboard Admin Principal
 const AdminDashboard = ({ bookings }) => {
   const [timeFilter, setTimeFilter] = useState('week'); // 'day', 'week', 'month'
+  
+  // Limpar dados de agendamentos antes de processar
+  const cleanedBookings = useMemo(() => {
+    return cleanBookingsData(bookings);
+  }, [bookings]);
 
   const stats = useMemo(() => {
     const now = new Date();
@@ -1622,37 +2131,43 @@ const AdminDashboard = ({ bookings }) => {
     else if (timeFilter === 'week') filterDate = startOfWeek;
     else filterDate = startOfMonth;
 
-    const filteredBookings = bookings.filter(b => {
+    const filteredBookings = cleanedBookings.filter(b => {
       const bookingDate = new Date(b.startTime);
       return bookingDate >= filterDate;
     });
     
-    const totalRevenue = filteredBookings.reduce((acc, b) => acc + (b.price || 0), 0);
-    const totalBookings = filteredBookings.length;
-    const averageRating = filteredBookings.reduce((acc, b) => acc + (b.rating || 0), 0) / filteredBookings.length || 0;
+    // ✅ CORREÇÃO: Calcular receita e estatísticas APENAS de agendamentos que foram adicionados ao dashboard
+    // Isso significa: pagamento confirmado E serviço concluído
+    const dashboardBookings = filteredBookings.filter(b => b.addedToDashboard === true);
     
-    const revenueByBarber = filteredBookings.reduce((acc, b) => {
+    const totalRevenue = dashboardBookings.reduce((acc, b) => acc + (b.price || 0), 0);
+    const totalBookings = filteredBookings.length;
+    const confirmedBookingsCount = dashboardBookings.length;
+    const averageRating = dashboardBookings.reduce((acc, b) => acc + (b.rating || 0), 0) / dashboardBookings.length || 0;
+    
+    const revenueByBarber = dashboardBookings.reduce((acc, b) => {
       acc[b.barberName] = (acc[b.barberName] || 0) + (b.price || 0);
       return acc;
     }, {});
 
-    const serviceStats = filteredBookings.reduce((acc, b) => {
+    const serviceStats = dashboardBookings.reduce((acc, b) => {
       acc[b.serviceName] = (acc[b.serviceName] || 0) + 1;
       return acc;
     }, {});
 
-    // Clientes únicos
-    const uniqueClients = new Set(filteredBookings.map(b => b.clientName)).size;
+    // Clientes únicos baseado em agendamentos completados
+    const uniqueClients = new Set(dashboardBookings.map(b => b.clientName)).size;
 
     return {
       totalRevenue,
       totalBookings,
+      confirmedBookingsCount,
       averageRating,
       uniqueClients,
       revenueByBarber: Object.entries(revenueByBarber).sort((a, b) => b[1] - a[1]),
       serviceStats: Object.entries(serviceStats).sort((a, b) => b[1] - a[1])
     };
-  }, [timeFilter, bookings]);
+  }, [timeFilter, cleanedBookings]);
 
   return (
     <div className="animate-fade-in space-y-4 sm:space-y-6 p-4 sm:p-6">
@@ -1681,7 +2196,7 @@ const AdminDashboard = ({ bookings }) => {
           <div className="flex items-center">
             <DollarSign className="h-6 w-6 sm:h-8 sm:w-8 text-green-500 mr-2 sm:mr-4" />
             <div>
-              <p className="text-xs sm:text-sm text-gray-400">Receita Total</p>
+              <p className="text-xs sm:text-sm text-gray-400">Receita Confirmada</p>
               <p className="text-lg sm:text-2xl font-bold text-white">R$ {stats.totalRevenue.toFixed(2)}</p>
             </div>
           </div>
@@ -1693,6 +2208,7 @@ const AdminDashboard = ({ bookings }) => {
             <div>
               <p className="text-xs sm:text-sm text-gray-400">Total de Serviços</p>
               <p className="text-lg sm:text-2xl font-bold text-white">{stats.totalBookings}</p>
+              <p className="text-xs text-gray-500">{stats.confirmedBookingsCount} confirmados</p>
             </div>
           </div>
         </div>
@@ -1765,16 +2281,42 @@ const AdminDashboard = ({ bookings }) => {
 };
 
 // Gerenciamento de Agendamentos Admin
-const AdminBookings = ({ bookings, onUpdateBooking }) => {
+const AdminBookings = ({ bookings, onUpdateBooking, onConfirmPayment }) => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [duplicateWarning, setDuplicateWarning] = useState('');
   
-  const todaysBookings = bookings.filter(b => {
-    const bookingDate = new Date(b.startTime);
-    return bookingDate.toISOString().split('T')[0] === selectedDate;
-  });
+  // Limpar e validar dados de agendamentos
+  const cleanedBookings = useMemo(() => {
+    const cleaned = cleanBookingsData(bookings);
+    
+    // Verificar se houve duplicatas
+    if (bookings.length !== cleaned.length) {
+      const duplicatesCount = bookings.length - cleaned.length;
+      setDuplicateWarning(`${duplicatesCount} agendamentos duplicados foram removidos automaticamente`);
+      
+      // Limpar aviso após 5 segundos
+      setTimeout(() => setDuplicateWarning(''), 5000);
+    } else {
+      setDuplicateWarning('');
+    }
+    
+    return cleaned;
+  }, [bookings]);
+  
+  const todaysBookings = useMemo(() => {
+    return cleanedBookings.filter(b => {
+      if (!b.startTime) return false;
+      const bookingDate = new Date(b.startTime);
+      return bookingDate.toISOString().split('T')[0] === selectedDate;
+    });
+  }, [cleanedBookings, selectedDate]);
 
   const handleCompleteBooking = (bookingId) => {
     onUpdateBooking(bookingId, { status: 'completed' });
+  };
+
+  const handleConfirmPayment = (bookingId) => {
+    onConfirmPayment(bookingId);
   };
 
   return (
@@ -1788,6 +2330,16 @@ const AdminBookings = ({ bookings, onUpdateBooking }) => {
           className="bg-gray-700 text-white border-gray-600 rounded-lg p-2 w-full sm:w-auto"
         />
       </div>
+      
+      {/* Aviso de duplicatas */}
+      {duplicateWarning && (
+        <div className="bg-yellow-900 border border-yellow-500 rounded-lg p-4">
+          <div className="flex items-center">
+            <AlertCircle className="h-5 w-5 text-yellow-400 mr-2" />
+            <span className="text-yellow-200">{duplicateWarning}</span>
+          </div>
+        </div>
+      )}
 
       <div className="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-xl">
         <h3 className="text-lg sm:text-xl font-semibold text-white mb-3 sm:mb-4">
@@ -1796,8 +2348,12 @@ const AdminBookings = ({ bookings, onUpdateBooking }) => {
         
         {todaysBookings.length > 0 ? (
           <div className="space-y-3 sm:space-y-4">
-            {todaysBookings.map(booking => (
-              <div key={booking.id} className="bg-gray-700 p-3 sm:p-4 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            {todaysBookings.map((booking, index) => {
+              // Garantir chave única combinando ID com índice e timestamp
+              const uniqueKey = `${booking.id}-${index}-${booking.startTime?.getTime() || Date.now()}`;
+              
+              return (
+                <div key={uniqueKey} className="bg-gray-700 p-3 sm:p-4 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <div className="flex-1">
                   <h4 className="font-semibold text-white text-sm sm:text-base">{booking.serviceName}</h4>
                   <p className="text-gray-400 text-xs sm:text-sm">Cliente: {booking.clientName}</p>
@@ -1805,20 +2361,38 @@ const AdminBookings = ({ bookings, onUpdateBooking }) => {
                   <p className="text-gray-400 text-xs sm:text-sm">Horário: {booking.date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
                 </div>
                 <div className="flex flex-col sm:items-end gap-2 w-full sm:w-auto">
-                  <p className="text-base sm:text-lg font-bold text-green-400">R$ {booking.price.toFixed(2)}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-base sm:text-lg font-bold text-green-400">R$ {booking.price.toFixed(2)}</p>
+                    {booking.paymentConfirmed ? (
+                      <span className="bg-green-600 text-white px-2 py-1 rounded text-xs">Pago</span>
+                    ) : (
+                      <span className="bg-yellow-600 text-white px-2 py-1 rounded text-xs">Pendente</span>
+                    )}
+                  </div>
                   <div className="flex items-center">
                     <Star className="h-3 w-3 sm:h-4 sm:w-4 text-yellow-500 mr-1" />
                     <span className="text-xs sm:text-sm text-gray-300">{booking.rating}</span>
                   </div>
-                  <button 
-                    onClick={() => handleCompleteBooking(booking.id)}
-                    className="bg-green-600 text-white px-3 py-1 rounded text-xs sm:text-sm hover:bg-green-500 w-full sm:w-auto"
-                  >
-                    {booking.status === 'completed' ? 'Concluído' : 'Marcar como Concluído'}
-                  </button>
+                  <div className="flex flex-col gap-2 w-full sm:w-auto">
+                    {!booking.paymentConfirmed && (
+                      <button 
+                        onClick={() => handleConfirmPayment(booking.id)}
+                        className="bg-blue-600 text-white px-3 py-1 rounded text-xs sm:text-sm hover:bg-blue-500 w-full sm:w-auto"
+                      >
+                        Confirmar Pagamento
+                      </button>
+                    )}
+                    <button 
+                      onClick={() => handleCompleteBooking(booking.id)}
+                      className="bg-green-600 text-white px-3 py-1 rounded text-xs sm:text-sm hover:bg-green-500 w-full sm:w-auto"
+                    >
+                      {booking.status === 'completed' ? 'Concluído' : 'Marcar como Concluído'}
+                    </button>
+                  </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <p className="text-gray-400 text-center py-8">Nenhum agendamento para esta data.</p>
@@ -1830,10 +2404,18 @@ const AdminBookings = ({ bookings, onUpdateBooking }) => {
 
 // Gerenciamento de Clientes
 const AdminClients = ({ bookings }) => {
+  // Limpar dados de agendamentos antes de processar
+  const cleanedBookings = useMemo(() => {
+    return cleanBookingsData(bookings);
+  }, [bookings]);
+  
   const clientStats = useMemo(() => {
+    // ✅ CORREÇÃO: Calcular estatísticas apenas de agendamentos adicionados ao dashboard (pagos E concluídos)
+    const dashboardBookings = cleanedBookings.filter(b => b.addedToDashboard === true);
+    
     const clientMap = new Map();
     
-    bookings.forEach(booking => {
+    dashboardBookings.forEach(booking => {
       const clientName = booking.clientName;
       if (!clientMap.has(clientName)) {
         clientMap.set(clientName, {
@@ -1862,7 +2444,7 @@ const AdminClients = ({ bookings }) => {
         arr.filter(v => v === a).length >= arr.filter(v => v === b).length ? a : b
       )
     })).sort((a, b) => b.visits - a.visits);
-  }, [bookings]);
+  }, [cleanedBookings]);
 
   return (
     <div className="animate-fade-in space-y-4 sm:space-y-6 p-4 sm:p-6">
@@ -1885,8 +2467,12 @@ const AdminClients = ({ bookings }) => {
                 </tr>
               </thead>
               <tbody>
-                {clientStats.map((client, index) => (
-                  <tr key={index} className="border-b border-gray-700">
+                {clientStats.map((client, index) => {
+                  // Garantir chave única para cada cliente
+                  const uniqueKey = `client-${client.name}-${index}-${client.lastVisit?.getTime() || Date.now()}`;
+                  
+                  return (
+                    <tr key={uniqueKey} className="border-b border-gray-700">
                     <td className="py-3 text-white font-medium text-sm">{client.name}</td>
                     <td className="py-3 text-gray-300 text-sm">{client.visits}</td>
                     <td className="py-3 text-gray-300 text-sm">
@@ -1903,14 +2489,19 @@ const AdminClients = ({ bookings }) => {
                       </button>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
 
             {/* Mobile Cards */}
             <div className="sm:hidden space-y-3">
-              {clientStats.map((client, index) => (
-                <div key={index} className="bg-gray-700 p-4 rounded-lg">
+              {clientStats.map((client, index) => {
+                // Garantir chave única para cada cliente mobile
+                const uniqueKey = `client-mobile-${client.name}-${index}-${client.lastVisit?.getTime() || Date.now()}`;
+                
+                return (
+                  <div key={uniqueKey} className="bg-gray-700 p-4 rounded-lg">
                   <div className="flex justify-between items-start mb-2">
                     <h4 className="text-white font-medium text-sm">{client.name}</h4>
                     <span className="text-green-400 font-semibold text-sm">R$ {client.totalSpent.toFixed(2)}</span>
@@ -1935,7 +2526,8 @@ const AdminClients = ({ bookings }) => {
                     </button>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         ) : (
@@ -1950,13 +2542,21 @@ const AdminClients = ({ bookings }) => {
 
 // Analytics Avançados
 const AdminAnalytics = ({ bookings }) => {
+  // Limpar dados de agendamentos antes de processar
+  const cleanedBookings = useMemo(() => {
+    return cleanBookingsData(bookings);
+  }, [bookings]);
+  
   const analytics = useMemo(() => {
+    // ✅ CORREÇÃO: Filtrar apenas agendamentos adicionados ao dashboard (pagos E concluídos)
+    const dashboardBookings = cleanedBookings.filter(b => b.addedToDashboard === true);
+    
     // Horários de pico por hora
     const hourlyStats = {};
     const dailyStats = {};
     const ratings = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
     
-    bookings.forEach(booking => {
+    dashboardBookings.forEach(booking => {
       const date = new Date(booking.startTime);
       const hour = date.getHours();
       const day = date.getDay();
@@ -1976,7 +2576,7 @@ const AdminAnalytics = ({ bookings }) => {
     // Calcular metas mensais
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const monthlyBookings = bookings.filter(b => new Date(b.startTime) >= startOfMonth);
+    const monthlyBookings = dashboardBookings.filter(b => new Date(b.startTime) >= startOfMonth);
     const monthlyRevenue = monthlyBookings.reduce((acc, b) => acc + (b.price || 0), 0);
     const monthlyClients = new Set(monthlyBookings.map(b => b.clientName)).size;
     const monthlyRating = monthlyBookings.reduce((acc, b) => acc + (b.rating || 0), 0) / monthlyBookings.length || 0;
@@ -1990,9 +2590,9 @@ const AdminAnalytics = ({ bookings }) => {
       monthlyRating,
       totalMonthlyBookings: monthlyBookings.length
     };
-  }, [bookings]);
+  }, [cleanedBookings]);
 
-  const dayNames = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+  // dayNames removido - não utilizado
   return (
     <div className="animate-fade-in space-y-4 sm:space-y-6 p-4 sm:p-6">
       <h2 className="text-2xl sm:text-3xl font-bold text-white">Analytics Avançados</h2>
@@ -2113,10 +2713,197 @@ const AdminAnalytics = ({ bookings }) => {
 };
 
 // Configurações Admin
-const AdminSettings = ({ bookings, onAddBooking }) => {
+const AdminSettings = ({ onDeleteAllData, services, schedules, barbers, onAddService, onUpdateService, onDeleteService, onAddSchedule, onUpdateSchedule, onDeleteSchedule, onAddBarber, onUpdateBarber, onDeleteBarber }) => {
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteProgress, setDeleteProgress] = useState('');
+  const [deleteMessage, setDeleteMessage] = useState('');
+  
+  // Estados para formulários de serviços
+  const [showServiceForm, setShowServiceForm] = useState(false);
+  const [editingService, setEditingService] = useState(null);
+  const [serviceForm, setServiceForm] = useState({
+    name: '',
+    price: '',
+    duration: '',
+    description: ''
+  });
+  
+  // Estados para formulários de horários
+  const [showScheduleForm, setShowScheduleForm] = useState(false);
+  const [editingSchedule, setEditingSchedule] = useState(null);
+  const [scheduleForm, setScheduleForm] = useState({
+    barberName: '',
+    dayOfWeek: '',
+    startTime: '',
+    endTime: '',
+    isActive: true
+  });
+  
+  // Estados para formulários de barbeiros
+  const [showBarberForm, setShowBarberForm] = useState(false);
+  const [editingBarber, setEditingBarber] = useState(null);
+  const [barberForm, setBarberForm] = useState({
+    name: '',
+    specialties: [],
+    experience: '',
+    rating: 5.0,
+    phone: '',
+    email: '',
+    isActive: true
+  });
+
+  const handleDeleteClick = () => {
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    setIsDeleting(true);
+    setDeleteProgress('Preparando exclusão...');
+    
+    try {
+      await onDeleteAllData(
+        (progress) => setDeleteProgress(progress),
+        (success) => {
+          setDeleteMessage(success);
+          setShowDeleteModal(false);
+          setIsDeleting(false);
+          setDeleteProgress('');
+        },
+        (error) => {
+          setDeleteMessage(error);
+          setShowDeleteModal(false);
+          setIsDeleting(false);
+          setDeleteProgress('');
+        }
+      );
+    } catch (error) {
+      setDeleteMessage(`Erro inesperado: ${error.message}`);
+      setShowDeleteModal(false);
+      setIsDeleting(false);
+      setDeleteProgress('');
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteModal(false);
+    setIsDeleting(false);
+    setDeleteProgress('');
+  };
+
+  // Funções para gerenciar serviços
+  const handleServiceSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (editingService) {
+      await onUpdateService(editingService.id, serviceForm);
+    } else {
+      await onAddService(serviceForm);
+    }
+    
+    // Limpar formulário
+    setServiceForm({ name: '', price: '', duration: '', description: '' });
+    setEditingService(null);
+    setShowServiceForm(false);
+  };
+
+  const handleEditService = (service) => {
+    setEditingService(service);
+    setServiceForm({
+      name: service.name,
+      price: service.price.toString(),
+      duration: service.duration.toString(),
+      description: service.description || ''
+    });
+    setShowServiceForm(true);
+  };
+
+  const handleDeleteService = async (service) => {
+    if (window.confirm(`Tem certeza que deseja excluir o serviço "${service.name}"?`)) {
+      await onDeleteService(service.id, service.name);
+    }
+  };
+
+  // Funções para gerenciar horários
+  const handleScheduleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (editingSchedule) {
+      await onUpdateSchedule(editingSchedule.id, scheduleForm);
+    } else {
+      await onAddSchedule(scheduleForm);
+    }
+    
+    // Limpar formulário
+    setScheduleForm({ barberName: '', dayOfWeek: '', startTime: '', endTime: '', isActive: true });
+    setEditingSchedule(null);
+    setShowScheduleForm(false);
+  };
+
+  const handleEditSchedule = (schedule) => {
+    setEditingSchedule(schedule);
+    setScheduleForm({
+      barberName: schedule.barberName,
+      dayOfWeek: schedule.dayOfWeek,
+      startTime: schedule.startTime,
+      endTime: schedule.endTime,
+      isActive: schedule.isActive
+    });
+    setShowScheduleForm(true);
+  };
+
+  const handleDeleteSchedule = async (schedule) => {
+    if (window.confirm(`Tem certeza que deseja excluir o horário de ${schedule.barberName}?`)) {
+      await onDeleteSchedule(schedule.id, schedule.barberName);
+    }
+  };
+
+  // Funções para gerenciar barbeiros
+  const handleBarberSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (editingBarber) {
+      await onUpdateBarber(editingBarber.id, barberForm);
+    } else {
+      await onAddBarber(barberForm);
+    }
+    
+    // Limpar formulário
+    setBarberForm({ name: '', specialties: [], experience: '', rating: 5.0, phone: '', email: '', isActive: true });
+    setEditingBarber(null);
+    setShowBarberForm(false);
+  };
+
+  const handleEditBarber = (barber) => {
+    setEditingBarber(barber);
+    setBarberForm({
+      name: barber.name,
+      specialties: barber.specialties || [],
+      experience: barber.experience || '',
+      rating: barber.rating || 5.0,
+      phone: barber.phone || '',
+      email: barber.email || '',
+      isActive: barber.isActive !== undefined ? barber.isActive : true
+    });
+    setShowBarberForm(true);
+  };
+
+  const handleDeleteBarber = async (barber) => {
+    if (window.confirm(`Tem certeza que deseja excluir o barbeiro "${barber.name}"? Todos os horários relacionados também serão excluídos.`)) {
+      await onDeleteBarber(barber.id, barber.name);
+    }
+  };
+
   return (
     <div className="animate-fade-in space-y-4 sm:space-y-6 p-4 sm:p-6">
       <h2 className="text-2xl sm:text-3xl font-bold text-white">Configurações</h2>
+      
+      {/* Mensagem de feedback */}
+      {deleteMessage && (
+        <div className={`p-4 rounded-lg ${deleteMessage.includes('sucesso') ? 'bg-green-900 text-green-200' : 'bg-red-900 text-red-200'}`}>
+          {deleteMessage}
+        </div>
+      )}
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Configurações de Horários */}
@@ -2165,27 +2952,135 @@ const AdminSettings = ({ bookings, onAddBooking }) => {
         <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
           <h3 className="text-xl font-semibold text-white mb-4">Gerenciar Serviços</h3>
           <div className="space-y-3">
-            {SERVICES.map(service => (
-              <div key={service.id} className="bg-gray-700 p-3 rounded-lg flex justify-between items-center">
+            {services.length > 0 ? (
+              services.map(service => (
+                <div key={service.id} className="bg-gray-700 p-3 rounded-lg flex justify-between items-center">
+                  <div>
+                    <p className="text-white font-semibold">{service.name}</p>
+                    <p className="text-sm text-gray-400">{service.duration} min - R$ {service.price.toFixed(2)}</p>
+                    {service.description && (
+                      <p className="text-gray-500 text-xs">{service.description}</p>
+                    )}
+                  </div>
+                  <div className="flex space-x-2">
+                    <button 
+                      onClick={() => handleEditService(service)}
+                      className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-500"
+                    >
+                      Editar
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteService(service)}
+                      className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-500"
+                    >
+                      Remover
+                    </button>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-gray-400 text-center py-4">Nenhum serviço cadastrado</p>
+            )}
+          </div>
+          <button 
+            onClick={() => setShowServiceForm(true)}
+            className="w-full mt-4 bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-500 transition-all"
+          >
+            Adicionar Novo Serviço
+          </button>
+        </div>
+      </div>
+
+      {/* Configurações de Horários */}
+      <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
+        <h3 className="text-xl font-semibold text-white mb-4">Gerenciar Horários dos Barbeiros</h3>
+        <div className="space-y-3">
+          {schedules.length > 0 ? (
+            schedules.map(schedule => (
+              <div key={schedule.id} className="bg-gray-700 p-3 rounded-lg flex justify-between items-center">
                 <div>
-                  <p className="text-white font-semibold">{service.name}</p>
-                  <p className="text-sm text-gray-400">{service.duration} min - R$ {service.price.toFixed(2)}</p>
+                  <p className="text-white font-semibold">{schedule.barberName}</p>
+                  <p className="text-sm text-gray-400">
+                    {['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'][schedule.dayOfWeek]} - 
+                    {schedule.startTime} às {schedule.endTime}
+                  </p>
+                  <p className={`text-xs ${schedule.isActive ? 'text-green-400' : 'text-red-400'}`}>
+                    {schedule.isActive ? 'Ativo' : 'Inativo'}
+                  </p>
                 </div>
                 <div className="flex space-x-2">
-                  <button className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-500">
+                  <button 
+                    onClick={() => handleEditSchedule(schedule)}
+                    className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-500"
+                  >
                     Editar
                   </button>
-                  <button className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-500">
+                  <button 
+                    onClick={() => handleDeleteSchedule(schedule)}
+                    className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-500"
+                  >
                     Remover
                   </button>
                 </div>
               </div>
-            ))}
-          </div>
-          <button className="w-full mt-4 bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-500 transition-all">
-            Adicionar Novo Serviço
-          </button>
+            ))
+          ) : (
+            <p className="text-gray-400 text-center py-4">Nenhum horário cadastrado</p>
+          )}
         </div>
+        <button 
+          onClick={() => setShowScheduleForm(true)}
+          className="w-full mt-4 bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-500 transition-all"
+        >
+          Adicionar Novo Horário
+        </button>
+      </div>
+
+      {/* Configurações de Barbeiros */}
+      <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
+        <h3 className="text-xl font-semibold text-white mb-4">Gerenciar Barbeiros</h3>
+        <div className="space-y-3">
+          {barbers.length > 0 ? (
+            barbers.map(barber => (
+              <div key={barber.id} className="bg-gray-700 p-3 rounded-lg flex justify-between items-center">
+                <div>
+                  <p className="text-white font-semibold">{barber.name}</p>
+                  <p className="text-sm text-gray-400">
+                    {barber.specialties && barber.specialties.length > 0 ? barber.specialties.join(', ') : 'Barbeiro'}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {barber.experience || 'Experiência profissional'} - ⭐ {barber.rating.toFixed(1)}
+                  </p>
+                  <p className={`text-xs ${barber.isActive ? 'text-green-400' : 'text-red-400'}`}>
+                    {barber.isActive ? 'Ativo' : 'Inativo'}
+                  </p>
+                </div>
+                <div className="flex space-x-2">
+                  <button 
+                    onClick={() => handleEditBarber(barber)}
+                    className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-500"
+                  >
+                    Editar
+                  </button>
+                  <button 
+                    onClick={() => handleDeleteBarber(barber)}
+                    className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-500"
+                  >
+                    Remover
+                  </button>
+                </div>
+              </div>
+            ))
+          ) : (
+            <p className="text-gray-400 text-center py-4">Nenhum barbeiro cadastrado</p>
+          )}
+        </div>
+        <button 
+          onClick={() => setShowBarberForm(true)}
+          className="w-full mt-4 bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-500 transition-all"
+        >
+          Adicionar Novo Barbeiro
+        </button>
       </div>
 
       {/* Configurações de Notificações */}
@@ -2215,6 +3110,474 @@ const AdminSettings = ({ bookings, onAddBooking }) => {
           </div>
         </div>
       </div>
+      
+      {/* Seção de Exclusão de Dados */}
+      <div className="bg-red-900 border border-red-500 rounded-lg p-6">
+        <div className="flex items-center mb-4">
+          <AlertCircle className="h-6 w-6 text-red-400 mr-3" />
+          <h3 className="text-lg font-semibold text-red-200">Zona de Perigo</h3>
+        </div>
+        
+        <p className="text-red-300 mb-4">
+          Esta seção contém ações que podem afetar permanentemente os dados do sistema. 
+          Use com extrema cautela.
+        </p>
+        
+        <div className="bg-red-800 rounded-lg p-4">
+          <h4 className="text-red-200 font-semibold mb-2">Excluir Todos os Dados</h4>
+          <p className="text-red-300 text-sm mb-4">
+            Remove permanentemente todos os agendamentos, clientes, serviços e configurações do sistema. 
+            Esta ação não pode ser desfeita.
+          </p>
+          
+          <button
+            onClick={handleDeleteClick}
+            disabled={isDeleting}
+            className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+          >
+            <AlertCircle className="h-4 w-4 mr-2" />
+            {isDeleting ? 'Excluindo...' : 'Excluir Todos os Dados'}
+          </button>
+        </div>
+      </div>
+      
+      {/* Modal de Confirmação */}
+      <DeleteDataModal
+        isOpen={showDeleteModal}
+        onClose={handleDeleteCancel}
+        onConfirm={handleDeleteConfirm}
+        isLoading={isDeleting}
+        progressMessage={deleteProgress}
+      />
+      
+      {/* Modal de Formulário de Serviço */}
+      {showServiceForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-white mb-4">
+                {editingService ? 'Editar Serviço' : 'Adicionar Novo Serviço'}
+              </h3>
+              
+              <form onSubmit={handleServiceSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Nome do Serviço</label>
+                  <input
+                    type="text"
+                    value={serviceForm.name}
+                    onChange={(e) => setServiceForm({...serviceForm, name: e.target.value})}
+                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Preço (R$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={serviceForm.price}
+                    onChange={(e) => setServiceForm({...serviceForm, price: e.target.value})}
+                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Duração (minutos)</label>
+                  <input
+                    type="number"
+                    value={serviceForm.duration}
+                    onChange={(e) => setServiceForm({...serviceForm, duration: e.target.value})}
+                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Descrição (opcional)</label>
+                  <textarea
+                    value={serviceForm.description}
+                    onChange={(e) => setServiceForm({...serviceForm, description: e.target.value})}
+                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+                    rows="3"
+                  />
+                </div>
+                
+                <div className="flex space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowServiceForm(false);
+                      setEditingService(null);
+                      setServiceForm({ name: '', price: '', duration: '', description: '' });
+                    }}
+                    className="flex-1 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-500 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 bg-yellow-500 text-gray-900 font-bold px-4 py-2 rounded-lg hover:bg-yellow-400 transition-colors"
+                  >
+                    {editingService ? 'Atualizar' : 'Adicionar'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Modal de Formulário de Horário */}
+      {showScheduleForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-white mb-4">
+                {editingSchedule ? 'Editar Horário' : 'Adicionar Novo Horário'}
+              </h3>
+              
+              <form onSubmit={handleScheduleSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Barbeiro</label>
+                  <select
+                    value={scheduleForm.barberName}
+                    onChange={(e) => setScheduleForm({...scheduleForm, barberName: e.target.value})}
+                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+                    required
+                  >
+                    <option value="">Selecione um barbeiro</option>
+                    {BARBERS.map(barber => (
+                      <option key={barber.id} value={barber.name}>{barber.name}</option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Dia da Semana</label>
+                  <select
+                    value={scheduleForm.dayOfWeek}
+                    onChange={(e) => setScheduleForm({...scheduleForm, dayOfWeek: parseInt(e.target.value)})}
+                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+                    required
+                  >
+                    <option value="">Selecione um dia</option>
+                    {['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'].map((day, index) => (
+                      <option key={index} value={index}>{day}</option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Horário de Início</label>
+                  <input
+                    type="time"
+                    value={scheduleForm.startTime}
+                    onChange={(e) => setScheduleForm({...scheduleForm, startTime: e.target.value})}
+                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Horário de Fim</label>
+                  <input
+                    type="time"
+                    value={scheduleForm.endTime}
+                    onChange={(e) => setScheduleForm({...scheduleForm, endTime: e.target.value})}
+                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+                    required
+                  />
+                </div>
+                
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="isActive"
+                    checked={scheduleForm.isActive}
+                    onChange={(e) => setScheduleForm({...scheduleForm, isActive: e.target.checked})}
+                    className="w-4 h-4 text-yellow-500 bg-gray-700 border-gray-600 rounded focus:ring-yellow-500"
+                  />
+                  <label htmlFor="isActive" className="ml-2 text-sm text-gray-300">
+                    Horário ativo
+                  </label>
+                </div>
+                
+                <div className="flex space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowScheduleForm(false);
+                      setEditingSchedule(null);
+                      setScheduleForm({ barberName: '', dayOfWeek: '', startTime: '', endTime: '', isActive: true });
+                    }}
+                    className="flex-1 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-500 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 bg-yellow-500 text-gray-900 font-bold px-4 py-2 rounded-lg hover:bg-yellow-400 transition-colors"
+                  >
+                    {editingSchedule ? 'Atualizar' : 'Adicionar'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Modal de Formulário de Barbeiro */}
+      {showBarberForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-white mb-4">
+                {editingBarber ? 'Editar Barbeiro' : 'Adicionar Novo Barbeiro'}
+              </h3>
+              
+              <form onSubmit={handleBarberSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Nome do Barbeiro</label>
+                  <input
+                    type="text"
+                    value={barberForm.name}
+                    onChange={(e) => setBarberForm({...barberForm, name: e.target.value})}
+                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Especialidades (separadas por vírgula)</label>
+                  <input
+                    type="text"
+                    value={barberForm.specialties.join(', ')}
+                    onChange={(e) => setBarberForm({...barberForm, specialties: e.target.value.split(',').map(s => s.trim()).filter(s => s)})}
+                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+                    placeholder="Ex: Corte masculino, Barba, Bigode"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Experiência</label>
+                  <input
+                    type="text"
+                    value={barberForm.experience}
+                    onChange={(e) => setBarberForm({...barberForm, experience: e.target.value})}
+                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+                    placeholder="Ex: 5 anos de experiência"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Avaliação (1-5)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="5"
+                    step="0.1"
+                    value={barberForm.rating}
+                    onChange={(e) => setBarberForm({...barberForm, rating: parseFloat(e.target.value)})}
+                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Telefone (opcional)</label>
+                  <input
+                    type="tel"
+                    value={barberForm.phone}
+                    onChange={(e) => setBarberForm({...barberForm, phone: e.target.value})}
+                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Email (opcional)</label>
+                  <input
+                    type="email"
+                    value={barberForm.email}
+                    onChange={(e) => setBarberForm({...barberForm, email: e.target.value})}
+                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+                  />
+                </div>
+                
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="barberIsActive"
+                    checked={barberForm.isActive}
+                    onChange={(e) => setBarberForm({...barberForm, isActive: e.target.checked})}
+                    className="w-4 h-4 text-yellow-500 bg-gray-700 border-gray-600 rounded focus:ring-yellow-500"
+                  />
+                  <label htmlFor="barberIsActive" className="ml-2 text-sm text-gray-300">
+                    Barbeiro ativo
+                  </label>
+                </div>
+                
+                <div className="flex space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowBarberForm(false);
+                      setEditingBarber(null);
+                      setBarberForm({ name: '', specialties: [], experience: '', rating: 5.0, phone: '', email: '', isActive: true });
+                    }}
+                    className="flex-1 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-500 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 bg-yellow-500 text-gray-900 font-bold px-4 py-2 rounded-lg hover:bg-yellow-400 transition-colors"
+                  >
+                    {editingBarber ? 'Atualizar' : 'Adicionar'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Componente de Prompt de Instalação PWA
+const InstallPrompt = ({ onInstall, onClose, isVisible }) => {
+  if (!isVisible) return null;
+
+  return (
+    <div className="fixed bottom-4 left-4 right-4 bg-yellow-500 text-gray-900 p-4 rounded-lg shadow-xl z-50 animate-fade-in-down">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center">
+          <Scissors className="h-6 w-6 mr-3" />
+          <div>
+            <h3 className="font-bold text-sm">Instalar BarbeariaApp</h3>
+            <p className="text-xs opacity-80">Adicione à tela inicial para acesso rápido</p>
+          </div>
+        </div>
+        <div className="flex space-x-2">
+          <button
+            onClick={onInstall}
+            className="bg-gray-900 text-yellow-500 px-3 py-1 rounded text-sm font-semibold hover:bg-gray-800 transition-colors"
+          >
+            Instalar
+          </button>
+          <button
+            onClick={onClose}
+            className="text-gray-900 hover:opacity-70 transition-opacity"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Componente de Instruções de Instalação
+const InstallInstructions = ({ onClose, isVisible }) => {
+  if (!isVisible) return null;
+
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const isAndroid = /Android/.test(navigator.userAgent);
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-gray-800 rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center">
+              <Scissors className="h-8 w-8 text-yellow-500 mr-3" />
+              <h3 className="text-xl font-bold text-white">Instalar App</h3>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-white transition-colors"
+            >
+              <X className="h-6 w-6" />
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            <p className="text-gray-300 text-sm">
+              Instale o BarbeariaApp na tela inicial do seu dispositivo para acesso rápido e melhor experiência.
+            </p>
+
+            {isIOS ? (
+              <div className="space-y-3">
+                <h4 className="text-white font-semibold">📱 iPhone/iPad:</h4>
+                <div className="space-y-2 text-sm text-gray-300">
+                  <div className="flex items-start">
+                    <span className="bg-yellow-500 text-gray-900 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">1</span>
+                    <span>Toque no botão <span className="bg-gray-700 px-2 py-1 rounded text-yellow-400">Compartilhar</span> na parte inferior da tela</span>
+                  </div>
+                  <div className="flex items-start">
+                    <span className="bg-yellow-500 text-gray-900 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">2</span>
+                    <span>Role para baixo e toque em <span className="bg-gray-700 px-2 py-1 rounded text-yellow-400">"Adicionar à Tela Inicial"</span></span>
+                  </div>
+                  <div className="flex items-start">
+                    <span className="bg-yellow-500 text-gray-900 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">3</span>
+                    <span>Toque em <span className="bg-gray-700 px-2 py-1 rounded text-yellow-400">"Adicionar"</span> para confirmar</span>
+                  </div>
+                </div>
+              </div>
+            ) : isAndroid ? (
+              <div className="space-y-3">
+                <h4 className="text-white font-semibold">🤖 Android:</h4>
+                <div className="space-y-2 text-sm text-gray-300">
+                  <div className="flex items-start">
+                    <span className="bg-yellow-500 text-gray-900 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">1</span>
+                    <span>Toque no menu <span className="bg-gray-700 px-2 py-1 rounded text-yellow-400">⋮</span> no navegador</span>
+                  </div>
+                  <div className="flex items-start">
+                    <span className="bg-yellow-500 text-gray-900 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">2</span>
+                    <span>Selecione <span className="bg-gray-700 px-2 py-1 rounded text-yellow-400">"Adicionar à tela inicial"</span></span>
+                  </div>
+                  <div className="flex items-start">
+                    <span className="bg-yellow-500 text-gray-900 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">3</span>
+                    <span>Toque em <span className="bg-gray-700 px-2 py-1 rounded text-yellow-400">"Adicionar"</span> para confirmar</span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <h4 className="text-white font-semibold">💻 Desktop:</h4>
+                <div className="space-y-2 text-sm text-gray-300">
+                  <div className="flex items-start">
+                    <span className="bg-yellow-500 text-gray-900 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">1</span>
+                    <span>Procure pelo ícone de instalação <span className="bg-gray-700 px-2 py-1 rounded text-yellow-400">⬇️</span> na barra de endereços</span>
+                  </div>
+                  <div className="flex items-start">
+                    <span className="bg-yellow-500 text-gray-900 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">2</span>
+                    <span>Clique em <span className="bg-gray-700 px-2 py-1 rounded text-yellow-400">"Instalar"</span> quando aparecer</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="bg-blue-900 bg-opacity-50 border border-blue-500 rounded-lg p-3">
+              <p className="text-blue-200 text-xs">
+                💡 <strong>Dica:</strong> Após a instalação, o app aparecerá na tela inicial como um aplicativo nativo!
+              </p>
+            </div>
+          </div>
+
+          <div className="flex space-x-3 mt-6">
+            <button
+              onClick={onClose}
+              className="flex-1 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-500 transition-colors"
+            >
+              Entendi
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
@@ -2222,10 +3585,60 @@ const AdminSettings = ({ bookings, onAddBooking }) => {
 // --- Componente Principal (App) ---
 export default function App() {
   const [currentView, setCurrentView] = useState('home');
-  const [userId] = useState("user-001");
+  const [userId, setUserId] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [authError, setAuthError] = useState(null);
+
+  // Solicitar permissão para notificações
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  // Firebase Authentication - Garantir login anônimo antes de qualquer acesso ao Firestore
+  useEffect(() => {
+    const initializeAuth = async () => {
+      try {
+        console.log("🚀 Inicializando autenticação Firebase...");
+        
+        // Aguardar estado de autenticação
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+            setUserId(user.uid);
+            setAuthError(null);
+            console.log("✅ Usuário autenticado:", user.uid);
+            setIsLoading(false);
+      } else {
+            console.log("🔐 Realizando login anônimo...");
+            try {
+              const result = await signInAnonymously(auth);
+              setUserId(result.user.uid);
+              setAuthError(null);
+              console.log("✅ Login anônimo realizado:", result.user.uid);
+            } catch (authError) {
+              console.error("❌ Erro no login anônimo:", authError);
+              setAuthError("Falha na autenticação. Verifique sua conexão com a internet.");
+              setError("Erro ao conectar com o servidor de autenticação");
+            }
+            setIsLoading(false);
+          }
+        });
+
+        return () => unsubscribe();
+      } catch (error) {
+        console.error("❌ Erro na inicialização da autenticação:", error);
+        setAuthError("Erro crítico na inicialização do Firebase");
+        setError("Erro ao inicializar o sistema");
+        setIsLoading(false);
+      }
+    };
+
+    initializeAuth();
+  }, []);
 
   // Error boundary para capturar erros
   useEffect(() => {
@@ -2245,41 +3658,719 @@ export default function App() {
       window.removeEventListener('unhandledrejection', handleError);
     };
   }, []);
-  
+
   const [bookings, setBookings] = useState([]);
-  const [isLoadingBookings] = useState(false);
-  const [bookingHistory, setBookingHistory] = useState([]);
-  const [isLoadingHistory] = useState(false);
+  const [isLoadingBookings, setIsLoadingBookings] = useState(false);
+  const [, setBookingHistory] = useState([]);
+  const [, setIsLoadingHistory] = useState(false);
   
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
-
-  // Carregar dados do localStorage
-  useEffect(() => {
-    console.log("🚀 Aplicação iniciada - carregando dados do localStorage");
-    const savedBookings = loadFromStorage(STORAGE_KEYS.BOOKINGS);
-    setBookings(savedBookings);
-    setBookingHistory(savedBookings);
-  }, []);
-
-  // Salvar dados sempre que bookings mudarem
-  useEffect(() => {
-    if (bookings.length > 0) {
-      saveToStorage(STORAGE_KEYS.BOOKINGS, bookings);
-    }
-  }, [bookings]);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
   
-  // Notificações do sistema
+  // Estados para serviços, horários e barbeiros
+  const [services, setServices] = useState([]);
+  const [schedules, setSchedules] = useState([]);
+  const [barbers, setBarbers] = useState([]);
+  const [, setIsLoadingServices] = useState(false);
+  const [, setIsLoadingSchedules] = useState(false);
+  const [, setIsLoadingBarbers] = useState(false);
+  
+  // Estados para PWA
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(false);
+  const [showInstallInstructions, setShowInstallInstructions] = useState(false);
+
+  // Carregar dados do Firebase - Só executa após autenticação bem-sucedida
   useEffect(() => {
-    // Notificações do sistema
-    setNotifications([
-      {
-        title: 'Bem-vindo!',
-        message: 'Sistema de barbearia carregado com sucesso.'
+    if (!userId || authError) return;
+
+    const loadFirestoreData = async () => {
+      try {
+        console.log("🚀 Carregando dados do Firestore para usuário:", userId);
+    setIsLoadingBookings(true);
+        setIsLoadingHistory(true);
+
+        // Aguardar autenticação estar pronta
+        await waitForAuth();
+
+        // Usar caminho correto para coleção de agendamentos
+        const bookingsPath = getCollectionPath(COLLECTIONS.BOOKINGS);
+        const bookingsRef = collection(db, bookingsPath);
+        const q = query(bookingsRef, orderBy('startTime', 'desc'));
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+          const rawBookingsData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            startTime: doc.data().startTime?.toDate() || new Date(doc.data().startTime),
+            endTime: doc.data().endTime?.toDate() || new Date(doc.data().endTime),
+            date: doc.data().date?.toDate() || new Date(doc.data().date)
+          }));
+          
+          // Limpar dados e remover duplicatas
+          const cleanedBookingsData = cleanBookingsData(rawBookingsData);
+          
+          // Verificar se houve duplicatas e mostrar aviso
+          if (rawBookingsData.length !== cleanedBookingsData.length) {
+            const duplicatesCount = rawBookingsData.length - cleanedBookingsData.length;
+            console.warn(`⚠️ ${duplicatesCount} agendamentos duplicados foram removidos`);
+            
+            // Adicionar notificação de aviso sobre duplicatas
+            setNotifications(prev => [...prev, {
+              id: generateId(),
+              type: 'warning',
+              message: `${duplicatesCount} agendamentos duplicados foram removidos automaticamente`,
+              timestamp: new Date(),
+              read: false
+            }]);
+          }
+          
+          setBookings(cleanedBookingsData);
+          setBookingHistory(cleanedBookingsData);
+          setIsLoadingBookings(false);
+          setIsLoadingHistory(false);
+          console.log("✅ Dados carregados e limpos do Firestore:", cleanedBookingsData.length, "agendamentos");
+        }, (error) => {
+          console.error("❌ Erro ao carregar dados do Firestore:", error);
+          setError(`Erro ao carregar dados: ${error.message}`);
+      setIsLoadingBookings(false);
+          setIsLoadingHistory(false);
+    });
+
+    return () => unsubscribe();
+      } catch (error) {
+        console.error("❌ Erro na inicialização do Firestore:", error);
+        setError(`Erro na conexão com o banco de dados: ${error.message}`);
+        setIsLoadingBookings(false);
+        setIsLoadingHistory(false);
       }
-    ]);
+    };
+
+    const loadServices = async () => {
+      try {
+        setIsLoadingServices(true);
+        const servicesPath = getCollectionPath(COLLECTIONS.SERVICES);
+        const servicesRef = collection(db, servicesPath);
+        const q = query(servicesRef, orderBy('name', 'asc'));
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+          const servicesData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          
+          setServices(servicesData);
+          setIsLoadingServices(false);
+          console.log("✅ Serviços carregados do Firestore:", servicesData.length, "serviços");
+        }, (error) => {
+          console.error("❌ Erro ao carregar serviços:", error);
+          setIsLoadingServices(false);
+        });
+        
+        return () => unsubscribe();
+      } catch (error) {
+        console.error("❌ Erro ao carregar serviços:", error);
+        setIsLoadingServices(false);
+      }
+    };
+
+    const loadSchedules = async () => {
+      try {
+        setIsLoadingSchedules(true);
+        const schedulesPath = getCollectionPath(COLLECTIONS.SCHEDULES);
+        const schedulesRef = collection(db, schedulesPath);
+        const q = query(schedulesRef, orderBy('barberName', 'asc'));
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+          const schedulesData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          
+          setSchedules(schedulesData);
+          setIsLoadingSchedules(false);
+          console.log("✅ Horários carregados do Firestore:", schedulesData.length, "horários");
+        }, (error) => {
+          console.error("❌ Erro ao carregar horários:", error);
+          setIsLoadingSchedules(false);
+        });
+        
+        return () => unsubscribe();
+      } catch (error) {
+        console.error("❌ Erro ao carregar horários:", error);
+        setIsLoadingSchedules(false);
+      }
+    };
+
+    const loadBarbers = async () => {
+      try {
+        setIsLoadingBarbers(true);
+        const barbersPath = getCollectionPath(COLLECTIONS.BARBERS);
+        const barbersRef = collection(db, barbersPath);
+        const q = query(barbersRef, orderBy('name', 'asc'));
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+          const barbersData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          
+          setBarbers(barbersData);
+          setIsLoadingBarbers(false);
+          console.log("✅ Barbeiros carregados do Firestore:", barbersData.length, "barbeiros");
+        }, (error) => {
+          console.error("❌ Erro ao carregar barbeiros:", error);
+          setIsLoadingBarbers(false);
+        });
+        
+        return () => unsubscribe();
+      } catch (error) {
+        console.error("❌ Erro ao carregar barbeiros:", error);
+        setIsLoadingBarbers(false);
+      }
+    };
+
+    loadFirestoreData();
+    loadServices();
+    loadSchedules();
+    loadBarbers();
+  }, [userId, authError]);
+
+  // PWA Installation Management
+  useEffect(() => {
+    // Verificar se já está instalado
+    const checkIfInstalled = () => {
+      if (window.matchMedia('(display-mode: standalone)').matches || 
+          window.navigator.standalone === true) {
+        setIsInstalled(true);
+        return true;
+      }
+      return false;
+    };
+
+    // Verificar se é a primeira visita
+    const isFirstVisit = !localStorage.getItem('pwa-install-shown');
+    
+    if (!checkIfInstalled() && isFirstVisit) {
+      // Mostrar instruções de instalação após 3 segundos
+      setTimeout(() => {
+        setShowInstallInstructions(true);
+        localStorage.setItem('pwa-install-shown', 'true');
+      }, 3000);
+    }
+
+    // Listener para o evento beforeinstallprompt
+    const handleBeforeInstallPrompt = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowInstallPrompt(true);
+    };
+
+    // Listener para o evento appinstalled
+    const handleAppInstalled = () => {
+      setIsInstalled(true);
+      setShowInstallPrompt(false);
+      setDeferredPrompt(null);
+      console.log('✅ PWA instalado com sucesso!');
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
   }, []);
+
+  // Sistema de notificações em tempo real
+  useEffect(() => {
+    if (!userId || authError) return;
+
+    const setupNotifications = async () => {
+      try {
+        // Aguardar autenticação estar pronta
+        await waitForAuth();
+
+        // Escutar novos agendamentos para notificações
+        const bookingsPath = getCollectionPath(COLLECTIONS.BOOKINGS);
+        const bookingsRef = collection(db, bookingsPath);
+        const q = query(bookingsRef, orderBy('createdAt', 'desc'));
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+          snapshot.docChanges().forEach((change) => {
+            if (change.type === 'added') {
+              const newBooking = change.doc.data();
+              const bookingId = change.doc.id;
+              
+              // Criar notificação para novo agendamento
+              const notification = {
+                id: generateId(),
+                type: 'booking',
+                message: `Novo agendamento: ${newBooking.clientName}`,
+                details: {
+                  service: newBooking.serviceName,
+                  barber: newBooking.barberName,
+                  date: newBooking.date?.toDate() || new Date(newBooking.date),
+                  time: newBooking.startTime?.toDate() || new Date(newBooking.startTime),
+                  price: newBooking.price,
+                  bookingId: bookingId
+                },
+                timestamp: new Date(),
+                read: false
+              };
+
+              setNotifications(prev => [notification, ...prev]);
+              setUnreadNotifications(prev => prev + 1);
+              
+              // Som de notificação (se suportado)
+              if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification('Novo Agendamento', {
+                  body: `${newBooking.clientName} agendou ${newBooking.serviceName}`,
+                  icon: '/vite.svg'
+                });
+              }
+            }
+          });
+    }, (error) => {
+          console.error("❌ Erro ao escutar notificações:", error);
+        });
+
+        return () => unsubscribe();
+      } catch (error) {
+        console.error("❌ Erro ao configurar notificações:", error);
+      }
+    };
+
+    setupNotifications();
+  }, [userId, authError]);
   
+  // Funções de notificações
+  const markNotificationAsRead = (notificationId) => {
+    setNotifications(prev => 
+      prev.map(notif => 
+        notif.id === notificationId ? { ...notif, read: true } : notif
+      )
+    );
+    setUnreadNotifications(prev => Math.max(0, prev - 1));
+  };
+
+  const removeNotification = (notificationId) => {
+    setNotifications(prev => {
+      const notification = prev.find(n => n.id === notificationId);
+      if (notification && !notification.read) {
+        setUnreadNotifications(prev => Math.max(0, prev - 1));
+      }
+      return prev.filter(n => n.id !== notificationId);
+    });
+  };
+
+  const clearAllNotifications = () => {
+    setNotifications([]);
+    setUnreadNotifications(0);
+  };
+
+  // Função para excluir todos os dados (apenas para administradores)
+  const handleDeleteAllData = async (onProgress, onSuccess, onError) => {
+    // Verificar se o usuário é administrador
+    if (!isAdmin) {
+      onError("Acesso negado. Apenas administradores podem excluir dados.");
+      return;
+    }
+
+    try {
+      await deleteAllData(onProgress, onSuccess, onError);
+    } catch (error) {
+      console.error("❌ Erro na exclusão de dados:", error);
+      onError(`Erro inesperado: ${error.message}`);
+    }
+  };
+
+  // Funções CRUD para Serviços
+  const handleAddService = async (serviceData) => {
+    try {
+      await waitForAuth();
+      
+      const servicesPath = getCollectionPath(COLLECTIONS.SERVICES);
+      const servicesRef = collection(db, servicesPath);
+      
+      const newService = {
+        name: serviceData.name,
+        price: parseFloat(serviceData.price),
+        duration: parseInt(serviceData.duration),
+        description: serviceData.description || '',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      
+      await addDoc(servicesRef, newService);
+      console.log("✅ Serviço adicionado com sucesso");
+      
+      // Adicionar notificação de sucesso
+      setNotifications(prev => [...prev, {
+        id: generateId(),
+        type: 'success',
+        message: `Serviço "${serviceData.name}" adicionado com sucesso`,
+        timestamp: new Date(),
+        read: false
+      }]);
+      
+    } catch (error) {
+      console.error("❌ Erro ao adicionar serviço:", error);
+      setNotifications(prev => [...prev, {
+        id: generateId(),
+        type: 'error',
+        message: `Erro ao adicionar serviço: ${error.message}`,
+        timestamp: new Date(),
+        read: false
+      }]);
+    }
+  };
+
+  const handleUpdateService = async (serviceId, serviceData) => {
+    try {
+      await waitForAuth();
+      
+      const servicesPath = getCollectionPath(COLLECTIONS.SERVICES);
+      const serviceRef = doc(db, servicesPath, serviceId);
+      
+      const updatedService = {
+        name: serviceData.name,
+        price: parseFloat(serviceData.price),
+        duration: parseInt(serviceData.duration),
+        description: serviceData.description || '',
+        updatedAt: new Date()
+      };
+      
+      await updateDoc(serviceRef, updatedService);
+      console.log("✅ Serviço atualizado com sucesso");
+      
+      // Adicionar notificação de sucesso
+      setNotifications(prev => [...prev, {
+        id: generateId(),
+        type: 'success',
+        message: `Serviço "${serviceData.name}" atualizado com sucesso`,
+        timestamp: new Date(),
+        read: false
+      }]);
+      
+    } catch (error) {
+      console.error("❌ Erro ao atualizar serviço:", error);
+      setNotifications(prev => [...prev, {
+        id: generateId(),
+        type: 'error',
+        message: `Erro ao atualizar serviço: ${error.message}`,
+        timestamp: new Date(),
+        read: false
+      }]);
+    }
+  };
+
+  const handleDeleteService = async (serviceId, serviceName) => {
+    try {
+      await waitForAuth();
+      
+      const servicesPath = getCollectionPath(COLLECTIONS.SERVICES);
+      const serviceRef = doc(db, servicesPath, serviceId);
+      
+      await deleteDoc(serviceRef);
+      console.log("✅ Serviço excluído com sucesso");
+      
+      // Adicionar notificação de sucesso
+      setNotifications(prev => [...prev, {
+        id: generateId(),
+        type: 'success',
+        message: `Serviço "${serviceName}" excluído com sucesso`,
+        timestamp: new Date(),
+        read: false
+      }]);
+      
+    } catch (error) {
+      console.error("❌ Erro ao excluir serviço:", error);
+      setNotifications(prev => [...prev, {
+        id: generateId(),
+        type: 'error',
+        message: `Erro ao excluir serviço: ${error.message}`,
+        timestamp: new Date(),
+        read: false
+      }]);
+    }
+  };
+
+  // Funções CRUD para Horários
+  const handleAddSchedule = async (scheduleData) => {
+    try {
+      await waitForAuth();
+      
+      const schedulesPath = getCollectionPath(COLLECTIONS.SCHEDULES);
+      const schedulesRef = collection(db, schedulesPath);
+      
+      const newSchedule = {
+        barberName: scheduleData.barberName,
+        dayOfWeek: scheduleData.dayOfWeek,
+        startTime: scheduleData.startTime,
+        endTime: scheduleData.endTime,
+        isActive: scheduleData.isActive !== undefined ? scheduleData.isActive : true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      
+      await addDoc(schedulesRef, newSchedule);
+      console.log("✅ Horário adicionado com sucesso");
+      
+      // Adicionar notificação de sucesso
+      setNotifications(prev => [...prev, {
+        id: generateId(),
+        type: 'success',
+        message: `Horário para ${scheduleData.barberName} adicionado com sucesso`,
+        timestamp: new Date(),
+        read: false
+      }]);
+      
+    } catch (error) {
+      console.error("❌ Erro ao adicionar horário:", error);
+      setNotifications(prev => [...prev, {
+        id: generateId(),
+        type: 'error',
+        message: `Erro ao adicionar horário: ${error.message}`,
+        timestamp: new Date(),
+        read: false
+      }]);
+    }
+  };
+
+  const handleUpdateSchedule = async (scheduleId, scheduleData) => {
+    try {
+      await waitForAuth();
+      
+      const schedulesPath = getCollectionPath(COLLECTIONS.SCHEDULES);
+      const scheduleRef = doc(db, schedulesPath, scheduleId);
+      
+      const updatedSchedule = {
+        barberName: scheduleData.barberName,
+        dayOfWeek: scheduleData.dayOfWeek,
+        startTime: scheduleData.startTime,
+        endTime: scheduleData.endTime,
+        isActive: scheduleData.isActive !== undefined ? scheduleData.isActive : true,
+        updatedAt: new Date()
+      };
+      
+      await updateDoc(scheduleRef, updatedSchedule);
+      console.log("✅ Horário atualizado com sucesso");
+      
+      // Adicionar notificação de sucesso
+      setNotifications(prev => [...prev, {
+        id: generateId(),
+        type: 'success',
+        message: `Horário para ${scheduleData.barberName} atualizado com sucesso`,
+        timestamp: new Date(),
+        read: false
+      }]);
+      
+    } catch (error) {
+      console.error("❌ Erro ao atualizar horário:", error);
+      setNotifications(prev => [...prev, {
+        id: generateId(),
+        type: 'error',
+        message: `Erro ao atualizar horário: ${error.message}`,
+        timestamp: new Date(),
+        read: false
+      }]);
+    }
+  };
+
+  const handleDeleteSchedule = async (scheduleId, barberName) => {
+    try {
+      await waitForAuth();
+      
+      const schedulesPath = getCollectionPath(COLLECTIONS.SCHEDULES);
+      const scheduleRef = doc(db, schedulesPath, scheduleId);
+      
+      await deleteDoc(scheduleRef);
+      console.log("✅ Horário excluído com sucesso");
+      
+      // Adicionar notificação de sucesso
+      setNotifications(prev => [...prev, {
+        id: generateId(),
+        type: 'success',
+        message: `Horário para ${barberName} excluído com sucesso`,
+        timestamp: new Date(),
+        read: false
+      }]);
+      
+    } catch (error) {
+      console.error("❌ Erro ao excluir horário:", error);
+      setNotifications(prev => [...prev, {
+        id: generateId(),
+        type: 'error',
+        message: `Erro ao excluir horário: ${error.message}`,
+        timestamp: new Date(),
+        read: false
+      }]);
+    }
+  };
+
+  // Funções CRUD para Barbeiros
+  const handleAddBarber = async (barberData) => {
+    try {
+      await waitForAuth();
+      
+      const barbersPath = getCollectionPath(COLLECTIONS.BARBERS);
+      const barbersRef = collection(db, barbersPath);
+      
+      const newBarber = {
+        name: barberData.name,
+        specialties: barberData.specialties || [],
+        experience: barberData.experience || '',
+        rating: barberData.rating || 5.0,
+        phone: barberData.phone || '',
+        email: barberData.email || '',
+        isActive: barberData.isActive !== undefined ? barberData.isActive : true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      
+      await addDoc(barbersRef, newBarber);
+      console.log("✅ Barbeiro adicionado com sucesso");
+      
+      // Adicionar notificação de sucesso
+      setNotifications(prev => [...prev, {
+        id: generateId(),
+        type: 'success',
+        message: `Barbeiro "${barberData.name}" adicionado com sucesso`,
+        timestamp: new Date(),
+        read: false
+      }]);
+      
+    } catch (error) {
+      console.error("❌ Erro ao adicionar barbeiro:", error);
+      setNotifications(prev => [...prev, {
+        id: generateId(),
+        type: 'error',
+        message: `Erro ao adicionar barbeiro: ${error.message}`,
+        timestamp: new Date(),
+        read: false
+      }]);
+    }
+  };
+
+  const handleUpdateBarber = async (barberId, barberData) => {
+    try {
+      await waitForAuth();
+      
+      const barbersPath = getCollectionPath(COLLECTIONS.BARBERS);
+      const barberRef = doc(db, barbersPath, barberId);
+      
+      const updatedBarber = {
+        name: barberData.name,
+        specialties: barberData.specialties || [],
+        experience: barberData.experience || '',
+        rating: barberData.rating || 5.0,
+        phone: barberData.phone || '',
+        email: barberData.email || '',
+        isActive: barberData.isActive !== undefined ? barberData.isActive : true,
+        updatedAt: new Date()
+      };
+      
+      await updateDoc(barberRef, updatedBarber);
+      console.log("✅ Barbeiro atualizado com sucesso");
+      
+      // Adicionar notificação de sucesso
+      setNotifications(prev => [...prev, {
+        id: generateId(),
+        type: 'success',
+        message: `Barbeiro "${barberData.name}" atualizado com sucesso`,
+        timestamp: new Date(),
+        read: false
+      }]);
+      
+    } catch (error) {
+      console.error("❌ Erro ao atualizar barbeiro:", error);
+      setNotifications(prev => [...prev, {
+        id: generateId(),
+        type: 'error',
+        message: `Erro ao atualizar barbeiro: ${error.message}`,
+        timestamp: new Date(),
+        read: false
+      }]);
+    }
+  };
+
+  const handleDeleteBarber = async (barberId, barberName) => {
+    try {
+      await waitForAuth();
+      
+      // Primeiro, excluir todos os horários relacionados ao barbeiro
+      const schedulesPath = getCollectionPath(COLLECTIONS.SCHEDULES);
+      const schedulesRef = collection(db, schedulesPath);
+      const schedulesQuery = query(schedulesRef, where('barberName', '==', barberName));
+      const schedulesSnapshot = await getDocs(schedulesQuery);
+      
+      const batch = writeBatch(db);
+      schedulesSnapshot.docs.forEach((scheduleDoc) => {
+        batch.delete(scheduleDoc.ref);
+      });
+      
+      // Excluir o barbeiro
+      const barbersPath = getCollectionPath(COLLECTIONS.BARBERS);
+      const barberRef = doc(db, barbersPath, barberId);
+      batch.delete(barberRef);
+      
+      await batch.commit();
+      console.log("✅ Barbeiro e horários relacionados excluídos com sucesso");
+      
+      // Adicionar notificação de sucesso
+      setNotifications(prev => [...prev, {
+        id: generateId(),
+        type: 'success',
+        message: `Barbeiro "${barberName}" e horários relacionados excluídos com sucesso`,
+        timestamp: new Date(),
+        read: false
+      }]);
+      
+    } catch (error) {
+      console.error("❌ Erro ao excluir barbeiro:", error);
+      setNotifications(prev => [...prev, {
+        id: generateId(),
+        type: 'error',
+        message: `Erro ao excluir barbeiro: ${error.message}`,
+        timestamp: new Date(),
+        read: false
+      }]);
+    }
+  };
+
+  // Funções PWA
+  const handleInstallPWA = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      
+      if (outcome === 'accepted') {
+        console.log('✅ Usuário aceitou a instalação do PWA');
+      } else {
+        console.log('❌ Usuário rejeitou a instalação do PWA');
+      }
+      
+      setDeferredPrompt(null);
+      setShowInstallPrompt(false);
+    }
+  };
+
+  const handleShowInstallInstructions = () => {
+    setShowInstallInstructions(true);
+  };
+
+  const handleCloseInstallInstructions = () => {
+    setShowInstallInstructions(false);
+  };
+
+  const handleCloseInstallPrompt = () => {
+    setShowInstallPrompt(false);
+  };
+
   // Funções de admin
   const handleAdminLogin = () => {
     setShowAdminLogin(true);
@@ -2297,20 +4388,213 @@ export default function App() {
   };
 
   // Função para adicionar novo agendamento
-  const handleAddBooking = (newBooking) => {
-    setBookings(prev => [...prev, newBooking]);
-    setBookingHistory(prev => [...prev, newBooking]);
+  const handleAddBooking = async (newBooking) => {
+    try {
+      console.log("📝 Adicionando agendamento ao Firestore:", newBooking);
+      
+      // Aguardar autenticação estar pronta
+      await waitForAuth();
+      
+      // Converter datas para Timestamp do Firebase
+      const bookingData = {
+        ...newBooking,
+        startTime: newBooking.startTime,
+        endTime: newBooking.endTime,
+        date: newBooking.date,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        paymentConfirmed: false, // Pagamento não confirmado inicialmente
+        paymentConfirmedAt: null,
+        paymentConfirmedBy: null,
+        addedToDashboard: false // ✅ Não adicionar ao dashboard até que esteja pago E concluído
+      };
+      
+      // Usar caminho correto para coleção
+      const bookingsPath = getCollectionPath(COLLECTIONS.BOOKINGS);
+      const docRef = await addDoc(collection(db, bookingsPath), bookingData);
+      console.log("✅ Agendamento adicionado com ID:", docRef.id);
+      
+      // Adicionar notificação de sucesso
+      setNotifications(prev => [...prev, {
+        id: generateId(),
+        type: 'success',
+        message: 'Agendamento realizado com sucesso!',
+        timestamp: new Date()
+      }]);
+      
+    } catch (error) {
+      console.error("❌ Erro ao adicionar agendamento:", error);
+      setError(`Erro ao salvar agendamento: ${error.message}`);
+    }
   };
 
   // Função para atualizar agendamento
-  const handleUpdateBooking = (bookingId, updates) => {
-    setBookings(prev => prev.map(booking => 
-      booking.id === bookingId ? { ...booking, ...updates } : booking
-    ));
-    setBookingHistory(prev => prev.map(booking => 
-      booking.id === bookingId ? { ...booking, ...updates } : booking
-    ));
+  const handleUpdateBooking = async (bookingId, updates) => {
+    try {
+      console.log("📝 Atualizando agendamento no Firestore:", bookingId, updates);
+      
+      // Aguardar autenticação estar pronta
+      await waitForAuth();
+      
+      // Buscar o agendamento atual para usar como dados padrão se necessário
+      const currentBooking = bookings.find(b => b.id === bookingId);
+      
+      // Dados padrão para criar o documento se não existir
+      const defaultBookingData = currentBooking || {
+        serviceId: 'unknown',
+        serviceName: 'Serviço Desconhecido',
+        duration: 30,
+        barberId: 'unknown',
+        barberName: 'Barbeiro Desconhecido',
+        date: new Date(),
+        startTime: new Date(),
+        endTime: new Date(),
+        clientName: 'Cliente Desconhecido',
+        clientPhone: '00000000000',
+        status: 'confirmed',
+        price: 0,
+        paymentConfirmed: false,
+        paymentConfirmedAt: null,
+        paymentConfirmedBy: null,
+        addedToDashboard: false
+      };
+      
+      // Garantir que o documento existe antes de atualizar
+      const bookingRef = await ensureDocumentExists(COLLECTIONS.BOOKINGS, bookingId, defaultBookingData);
+      
+      // Verificar se está marcando como concluído
+      const isMarkingAsCompleted = updates.status === 'completed';
+      
+      // Se está marcando como concluído, verificar se o pagamento já foi confirmado
+      if (isMarkingAsCompleted && currentBooking) {
+        const isPaid = currentBooking.paymentConfirmed === true;
+        const notYetAddedToDashboard = !currentBooking.addedToDashboard;
+        
+        // Se pagamento confirmado E não foi adicionado ao dashboard ainda, marcar para adicionar
+        if (isPaid && notYetAddedToDashboard) {
+          console.log("✅ Condições atendidas: Pagamento confirmado + Serviço concluído. Marcando para dashboard.");
+          updates.addedToDashboard = true;
+        }
+      }
+      
+      // Atualizar o documento usando setDoc com merge
+      await setDoc(bookingRef, {
+        ...updates,
+        updatedAt: new Date()
+      }, { merge: true });
+      
+      console.log("✅ Agendamento atualizado com sucesso");
+      
+    } catch (error) {
+      console.error("❌ Erro ao atualizar agendamento:", error);
+      setError(`Erro ao atualizar agendamento: ${error.message}`);
+    }
   };
+
+  // Função para confirmar pagamento
+  const handleConfirmPayment = async (bookingId) => {
+    try {
+      console.log("💰 Confirmando pagamento para agendamento:", bookingId);
+      
+      // Aguardar autenticação estar pronta
+      await waitForAuth();
+      
+      // Buscar o agendamento atual para usar como dados padrão se necessário
+      const currentBooking = bookings.find(b => b.id === bookingId);
+      
+      // Dados padrão para criar o documento se não existir
+      const defaultBookingData = currentBooking || {
+        serviceId: 'unknown',
+        serviceName: 'Serviço Desconhecido',
+        duration: 30,
+        barberId: 'unknown',
+        barberName: 'Barbeiro Desconhecido',
+        date: new Date(),
+        startTime: new Date(),
+        endTime: new Date(),
+        clientName: 'Cliente Desconhecido',
+        clientPhone: '00000000000',
+        status: 'confirmed',
+        price: 0,
+        paymentConfirmed: false,
+        paymentConfirmedAt: null,
+        paymentConfirmedBy: null,
+        addedToDashboard: false
+      };
+      
+      // Garantir que o documento existe antes de atualizar
+      const bookingRef = await ensureDocumentExists(COLLECTIONS.BOOKINGS, bookingId, defaultBookingData);
+      
+      // Preparar os dados de atualização
+      const updateData = {
+        paymentConfirmed: true,
+        paymentConfirmedAt: new Date(),
+        paymentConfirmedBy: userId,
+        updatedAt: new Date()
+      };
+      
+      // Verificar se o serviço já foi concluído
+      if (currentBooking) {
+        const isCompleted = currentBooking.status === 'completed';
+        const notYetAddedToDashboard = !currentBooking.addedToDashboard;
+        
+        // Se serviço concluído E não foi adicionado ao dashboard ainda, marcar para adicionar
+        if (isCompleted && notYetAddedToDashboard) {
+          console.log("✅ Condições atendidas: Serviço concluído + Pagamento confirmado. Marcando para dashboard.");
+          updateData.addedToDashboard = true;
+        }
+      }
+      
+      // Atualizar o documento usando setDoc com merge
+      await setDoc(bookingRef, updateData, { merge: true });
+      
+      console.log("✅ Pagamento confirmado com sucesso");
+      
+      // Adicionar notificação de sucesso
+      setNotifications(prev => [...prev, {
+        id: generateId(),
+        type: 'success',
+        message: 'Pagamento confirmado com sucesso!',
+        timestamp: new Date(),
+        read: false
+      }]);
+      
+    } catch (error) {
+      console.error("❌ Erro ao confirmar pagamento:", error);
+      setError(`Erro ao confirmar pagamento: ${error.message}`);
+    }
+  };
+  
+  // Tela de loading enquanto Firebase carrega
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500 mx-auto mb-4"></div>
+          <p className="text-white text-lg">Conectando ao servidor...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Tela de erro de autenticação
+  if (authError) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
+        <div className="bg-red-900 border border-red-500 rounded-lg p-8 max-w-md w-full text-center">
+          <div className="text-red-400 text-6xl mb-4">⚠️</div>
+          <h2 className="text-2xl font-bold text-white mb-4">Erro de Conexão</h2>
+          <p className="text-red-200 mb-6">{authError}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-500 transition-colors"
+          >
+            Tentar Novamente
+          </button>
+        </div>
+      </div>
+    );
+  }
   
   // Renderização do conteúdo principal
   const renderView = () => {
@@ -2320,13 +4604,29 @@ export default function App() {
       case 'admin_dashboard':
         return <AdminDashboard bookings={bookings} />;
       case 'admin_bookings':
-        return <AdminBookings bookings={bookings} onUpdateBooking={handleUpdateBooking} />;
+        return <AdminBookings bookings={bookings} onUpdateBooking={handleUpdateBooking} onConfirmPayment={handleConfirmPayment} />;
       case 'admin_clients':
         return <AdminClients bookings={bookings} />;
       case 'admin_analytics':
         return <AdminAnalytics bookings={bookings} />;
         case 'admin_settings':
-          return <AdminSettings bookings={bookings} onAddBooking={handleAddBooking} />;
+          return <AdminSettings 
+            bookings={bookings} 
+            onAddBooking={handleAddBooking} 
+            onDeleteAllData={handleDeleteAllData}
+            services={services}
+            schedules={schedules}
+            barbers={barbers}
+            onAddService={handleAddService}
+            onUpdateService={handleUpdateService}
+            onDeleteService={handleDeleteService}
+            onAddSchedule={handleAddSchedule}
+            onUpdateSchedule={handleUpdateSchedule}
+            onDeleteSchedule={handleDeleteSchedule}
+            onAddBarber={handleAddBarber}
+            onUpdateBarber={handleUpdateBarber}
+            onDeleteBarber={handleDeleteBarber}
+          />;
         default:
           return <AdminDashboard bookings={bookings} />;
       }
@@ -2335,7 +4635,7 @@ export default function App() {
     // Views de cliente
     switch (currentView) {
       case 'home':
-        return <Home onBookNow={() => setCurrentView('book')} />;
+        return <Home onBookNow={() => setCurrentView('book')} services={services} barbers={barbers} />;
       case 'book':
         return (
           <BookingFlow 
@@ -2343,6 +4643,8 @@ export default function App() {
             userId={userId}
             onBookingComplete={() => setCurrentView('my_bookings')}
             onAddBooking={handleAddBooking}
+            services={services}
+            barbers={barbers}
           />
         );
       case 'my_bookings':
@@ -2380,7 +4682,19 @@ export default function App() {
 
   return (
     <div className="font-inter bg-gray-900 text-white min-h-screen">
-      <Header isAdmin={isAdmin} onLogout={handleAdminLogout} />
+      <Header 
+        isAdmin={isAdmin} 
+        onLogout={handleAdminLogout}
+        notifications={notifications}
+        unreadNotifications={unreadNotifications}
+        showNotifications={showNotifications}
+        setShowNotifications={setShowNotifications}
+        markNotificationAsRead={markNotificationAsRead}
+        removeNotification={removeNotification}
+        clearAllNotifications={clearAllNotifications}
+        onShowInstallInstructions={handleShowInstallInstructions}
+        isInstalled={isInstalled}
+      />
       <Navigation 
         currentView={currentView} 
         setCurrentView={setCurrentView}
@@ -2402,6 +4716,18 @@ export default function App() {
       <footer className="text-center p-4 text-gray-500 text-sm border-t border-gray-800 mt-8">
         App de Barbearia &copy; {new Date().getFullYear()}
       </footer>
+
+      {/* PWA Components */}
+      <InstallPrompt 
+        onInstall={handleInstallPWA}
+        onClose={handleCloseInstallPrompt}
+        isVisible={showInstallPrompt}
+      />
+      
+      <InstallInstructions 
+        onClose={handleCloseInstallInstructions}
+        isVisible={showInstallInstructions}
+      />
     </div>
   );
 }

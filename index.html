@@ -2,15 +2,60 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Sistema completo de gerenciamento para barbearias com agendamentos, clientes e analytics." />
-    <meta name="theme-color" content="#1F2937" />
+    <link rel="icon" type="image/svg+xml" href="/icons/icon-192x192.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>Barbearia Oficial - Sistema de Agendamento</title>
+    <meta name="description" content="Sistema completo de agendamento para barbearia com gestão administrativa. Agende seu corte, gerencie horários e muito mais." />
+    <meta name="theme-color" content="#EAB308" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="BarbeariaApp" />
+    <meta name="msapplication-TileColor" content="#1F2937" />
+    <meta name="msapplication-TileImage" content="/icons/icon-144x144.svg" />
+    
+    <!-- PWA Manifest -->
     <link rel="manifest" href="/manifest.json" />
-    <title>Sistema de Barbearia</title>
+    
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.svg" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152x152.svg" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-192x192.svg" />
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" sizes="32x32" href="/icons/icon-32x32.svg" />
+    <link rel="icon" type="image/svg+xml" sizes="16x16" href="/icons/icon-16x16.svg" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://barbearia-oficial.vercel.app/" />
+    <meta property="og:title" content="Barbearia Oficial - Sistema de Agendamento" />
+    <meta property="og:description" content="Sistema completo de agendamento para barbearia com gestão administrativa" />
+    <meta property="og:image" content="/icons/icon-512x512.svg" />
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://barbearia-oficial.vercel.app/" />
+    <meta property="twitter:title" content="Barbearia Oficial - Sistema de Agendamento" />
+    <meta property="twitter:description" content="Sistema completo de agendamento para barbearia com gestão administrativa" />
+    <meta property="twitter:image" content="/icons/icon-512x512.svg" />
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+    
+    <!-- Service Worker Registration -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then((registration) => {
+              console.log('✅ Service Worker registrado com sucesso:', registration.scope);
+            })
+            .catch((error) => {
+              console.log('❌ Falha no registro do Service Worker:', error);
+            });
+        });
+      }
+    </script>
   </body>
 </html>
