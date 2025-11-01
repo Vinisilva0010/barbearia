@@ -57,7 +57,8 @@ const COLLECTIONS = {
   ADMINS: "admins",
   SERVICES: "services",
   BARBERS: "barbers",
-  SCHEDULES: "schedules"
+  SCHEDULES: "schedules",
+  LUNCH_BREAKS: "lunchBreaks"
 };
 
 // --- Sistema de Barbearia ---
@@ -628,7 +629,7 @@ const AdminLogin = ({ onLogin }) => {
     <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
       <div className="bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-md">
         <div className="text-center mb-6">
-          <Lock className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
+          <Lock className="h-12 w-12 text-white mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-white">Área do Barbeiro</h2>
           <p className="text-gray-400 mt-2">Faça login para acessar o painel administrativo</p>
         </div>
@@ -640,7 +641,7 @@ const AdminLogin = ({ onLogin }) => {
               type="text"
               value={credentials.username}
               onChange={(e) => setCredentials({...credentials, username: e.target.value})}
-              className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+              className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-white focus:border-white"
               placeholder="Digite seu usuário"
               required
             />
@@ -653,7 +654,7 @@ const AdminLogin = ({ onLogin }) => {
                 type={showPassword ? 'text' : 'password'}
                 value={credentials.password}
                 onChange={(e) => setCredentials({...credentials, password: e.target.value})}
-                className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 pr-10 focus:ring-yellow-500 focus:border-yellow-500"
+                className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 pr-10 focus:ring-white focus:border-white"
                 placeholder="Digite sua senha"
                 required
               />
@@ -676,7 +677,7 @@ const AdminLogin = ({ onLogin }) => {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-yellow-500 text-gray-900 font-bold py-3 px-6 rounded-lg hover:bg-yellow-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+            className="w-full bg-white text-gray-900 font-bold py-3 px-6 rounded-lg hover:bg-gray-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
           >
             {isLoading ? (
               <>
@@ -758,9 +759,9 @@ const Header = ({
   onShowInstallInstructions,
   isInstalled
 }) => (
-  <header className="w-full bg-gray-900 p-3 sm:p-4 border-b-2 border-yellow-500">
-    <div className="max-w-5xl mx-auto flex items-center justify-between">
-      <div className="flex items-center">
+  <header className="w-full bg-gray-900 p-3 sm:p-4 border-b-2 border-white">
+    <div className="max-w-5xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+      <div className="flex items-center w-full sm:w-auto">
         <img
           src={logoImg}
           alt="Logo Bigodes Cortes"
@@ -769,17 +770,17 @@ const Header = ({
         <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-white tracking-wider">
           <span className="hidden sm:inline">Bigodes Cortes </span>
           <span className="sm:hidden">Barbearia</span>
-      </h1>
+        </h1>
         <span className={`ml-3 px-2.5 py-1 rounded-full text-xs font-semibold ${isAdmin ? 'bg-red-500 text-white' : 'bg-green-500 text-gray-900'}`}>
           {isAdmin ? 'Área do Barbeiro' : 'Área do Cliente'}
         </span>
       </div>
 
-      <div className="flex items-center space-x-3">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end w-full sm:w-auto gap-2 sm:gap-3">
         {!isInstalled && onShowInstallInstructions && (
           <button
             onClick={onShowInstallInstructions}
-            className="hidden sm:flex items-center space-x-2 bg-yellow-500 text-gray-900 px-3 py-2 rounded-lg hover:bg-yellow-400 transition-colors text-sm font-semibold"
+            className="flex items-center justify-center space-x-2 bg-white text-gray-900 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors text-sm font-semibold shadow-md w-full sm:w-auto"
             title="Instalar App"
           >
             <Scissors className="h-4 w-4" />
@@ -790,7 +791,7 @@ const Header = ({
         <div className="relative">
           <button
             onClick={() => setShowNotifications(!showNotifications)}
-            className="relative p-2 text-gray-300 hover:text-white transition-colors"
+            className="relative p-2 text-gray-300 hover:text-white transition-colors w-full sm:w-auto flex justify-center"
           >
             <Bell className="h-6 w-6" />
             {unreadNotifications > 0 && (
@@ -914,7 +915,7 @@ const Header = ({
         {isAdmin && (
           <button
             onClick={onLogout}
-            className="bg-red-600 text-white px-3 py-2 sm:px-4 rounded-lg hover:bg-red-500 transition-all flex items-center text-sm sm:text-base"
+            className="bg-red-600 text-white px-3 py-2 sm:px-4 rounded-lg hover:bg-red-500 transition-all flex items-center justify-center text-sm sm:text-base w-full sm:w-auto"
           >
             <X className="h-4 w-4 mr-1 sm:mr-2" />
             <span className="hidden sm:inline">Sair</span>
@@ -941,7 +942,7 @@ const NotificationsPanel = ({ notifications, onClose }) => (
         <div className="space-y-3">
           {notifications.map((notif, index) => (
             <div key={index} className="flex items-start">
-              <Clock className="h-4 w-4 text-yellow-500 mt-1 mr-2 flex-shrink-0" />
+              <Clock className="h-4 w-4 text-white mt-1 mr-2 flex-shrink-0" />
               <div>
                 <p className="text-sm text-white">{notif.title || notif.message}</p>
                 {notif.title && notif.message && notif.title !== notif.message && (
@@ -962,7 +963,7 @@ const Navigation = ({ currentView, setCurrentView, notifications, showNotificati
     { id: 'home', label: 'Início', icon: Store },
     { id: 'book', label: 'Agendar', icon: Calendar },
     { id: 'my_bookings', label: 'Meus Horários', icon: Clock },
-    { id: 'services', label: 'Serviços', icon: Scissors },
+    
     { id: 'contact', label: 'Contato', icon: Phone },
   ];
 
@@ -978,14 +979,14 @@ const Navigation = ({ currentView, setCurrentView, notifications, showNotificati
 
   return (
     <nav className="w-full bg-gray-800 p-2 sticky top-0 z-40 shadow-lg">
-      <div className="max-w-md sm:max-w-lg md:max-w-4xl mx-auto flex justify-around relative">
+      <div className="max-w-md sm:max-w-lg md:max-w-4xl mx-auto flex justify-start relative overflow-x-auto gap-2 sm:gap-3">
         {navItems.map((item) => (
           <button
             key={item.id}
             onClick={() => setCurrentView(item.id)}
-            className={`flex flex-col items-center px-2 sm:px-3 md:px-4 py-2 rounded-lg transition-all duration-200 ${
+            className={`flex flex-col items-center min-w-[72px] sm:min-w-[88px] px-2 sm:px-3 md:px-4 py-2 rounded-lg transition-all duration-200 ${
               currentView === item.id
-                ? 'bg-yellow-500 text-gray-900 scale-105'
+                ? 'bg-white text-gray-900 shadow-lg scale-105'
                 : 'text-gray-300 hover:bg-gray-700 hover:text-white'
             }`}
           >
@@ -999,7 +1000,7 @@ const Navigation = ({ currentView, setCurrentView, notifications, showNotificati
         {!isAdmin && (
         <button
           onClick={() => setShowNotifications(prev => !prev)}
-            className="relative flex flex-col items-center px-2 sm:px-3 md:px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white"
+            className="relative flex flex-col items-center min-w-[72px] sm:min-w-[88px] px-2 sm:px-3 md:px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white"
         >
           {notifications.length > 0 && (
               <span className="absolute top-1 right-2 sm:right-3 flex h-3 w-3 sm:h-4 sm:w-4">
@@ -1019,7 +1020,7 @@ const Navigation = ({ currentView, setCurrentView, notifications, showNotificati
         {!isAdmin && (
           <button
             onClick={onAdminLogin}
-            className="flex flex-col items-center px-2 sm:px-3 md:px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white"
+            className="flex flex-col items-center min-w-[72px] sm:min-w-[88px] px-2 sm:px-3 md:px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white"
           >
             <Lock className="h-4 w-4 sm:h-5 sm:w-5 mb-1" />
             <span className="text-xs font-medium hidden sm:block">Admin</span>
@@ -1047,24 +1048,24 @@ const Home = ({ onBookNow, services, barbers }) => {
 
   return (
   <div className="animate-fade-in space-y-4 sm:space-y-6 p-4 sm:p-6">
-    <div className="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-xl text-center">
-      <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2 sm:mb-3">Bem-vindo Barbearia Bigodes cortes!</h2>
-      <p className="text-gray-300 mb-4 sm:mb-6 text-sm sm:text-base">Onde tradição e estilo se encontram. Agende seu horário com os melhores.</p>
+    <div className="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-xl text-center space-y-4">
+      <h2 className="text-2xl sm:text-3xl font-bold text-white">Bem-vindo Barbearia Bigodes cortes!</h2>
+      <p className="text-gray-300 text-sm sm:text-base">Onde tradição e estilo se encontram. Agende seu horário com os melhores.</p>
       <button
         onClick={onBookNow}
-        className="bg-yellow-500 text-gray-900 font-bold py-3 px-6 sm:px-8 rounded-lg text-base sm:text-lg hover:bg-yellow-400 transition-transform hover:scale-105 w-full sm:w-auto"
+        className="bg-white text-gray-900 font-bold py-3 px-6 sm:px-8 rounded-lg text-base sm:text-lg hover:bg-gray-100 transition-transform hover:scale-105 w-full sm:w-auto"
       >
         Agendar Agora
       </button>
     </div>
-    
+
     <div className="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-xl">
-      <h3 className="text-xl sm:text-2xl font-semibold text-white mb-3 sm:mb-4 border-l-4 border-yellow-500 pl-3">Nossos Serviços</h3>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+      <h3 className="text-xl sm:text-2xl font-semibold text-white mb-4 border-l-4 border-white pl-3">Nossos Serviços</h3>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {safeServices.length > 0 ? (
           safeServices.map(service => (
             <div key={service.id} className="bg-gray-700 p-3 sm:p-4 rounded-lg text-center shadow-md">
-              <Scissors className="h-6 w-6 sm:h-8 sm:w-8 text-yellow-500 mx-auto mb-2" />
+              <Scissors className="h-6 w-6 sm:h-8 sm:w-8 text-white mx-auto mb-2" />
               <p className="font-semibold text-white text-sm sm:text-base">{service?.name || 'Serviço'}</p>
               <p className="text-xs sm:text-sm text-gray-300">R$ {(service?.price || 0).toFixed(2)}</p>
               <p className="text-xs text-gray-400">{service?.duration || 30} min</p>
@@ -1079,12 +1080,12 @@ const Home = ({ onBookNow, services, barbers }) => {
     </div>
     
     <div className="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-xl">
-      <h3 className="text-xl sm:text-2xl font-semibold text-white mb-3 sm:mb-4 border-l-4 border-yellow-500 pl-3">Nossa Equipe</h3>
+      <h3 className="text-xl sm:text-2xl font-semibold text-white mb-4 border-l-4 border-white pl-3">Nossa Equipe</h3>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         {safeBarbers.length > 0 ? (
           safeBarbers.filter(barber => barber?.isActive !== false).map(barber => (
             <div key={barber.id} className="bg-gray-700 p-4 rounded-lg text-center shadow-md">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-yellow-500 rounded-full mx-auto mb-3 flex items-center justify-center">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-white rounded-full mx-auto mb-3 flex items-center justify-center">
                 <span className="text-gray-900 font-bold text-lg sm:text-xl">{(barber?.name || 'B').charAt(0)}</span>
               </div>
               <p className="text-base sm:text-lg font-medium text-white">{barber?.name || 'Barbeiro'}</p>
@@ -1092,7 +1093,7 @@ const Home = ({ onBookNow, services, barbers }) => {
                 {barber?.specialties && barber.specialties.length > 0 ? barber.specialties.join(', ') : 'Barbeiro'}
               </p>
               <div className="flex items-center justify-center mt-2">
-                <Star className="h-4 w-4 text-yellow-500 mr-1" />
+                <Star className="h-4 w-4 text-white mr-1" />
                 <span className="text-xs sm:text-sm text-gray-300">{(barber?.rating || 5.0).toFixed(1)}</span>
                 <span className="text-xs text-gray-500 ml-2">({barber?.experience || 'Experiência'})</span>
               </div>
@@ -1110,30 +1111,7 @@ const Home = ({ onBookNow, services, barbers }) => {
 };
 
 // Componente de Serviços Detalhados
-const ServicesView = () => (
-  <div className="animate-fade-in space-y-6">
-    <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
-      <h2 className="text-3xl font-bold text-white mb-6 text-center">Nossos Serviços</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {SERVICES.map(service => (
-          <div key={service.id} className="bg-gray-700 p-6 rounded-lg shadow-md">
-            <div className="flex items-center mb-4">
-              <service.icon className="h-10 w-10 text-yellow-500 mr-4" />
-              <div>
-                <h3 className="text-xl font-semibold text-white">{service.name}</h3>
-                <p className="text-gray-400">{service.duration} minutos</p>
-              </div>
-            </div>
-            <p className="text-2xl font-bold text-yellow-500 mb-4">R$ {service.price.toFixed(2)}</p>
-            <button className="w-full bg-yellow-500 text-gray-900 font-bold py-2 px-4 rounded-lg hover:bg-yellow-400 transition-all">
-              Agendar Este Serviço
-            </button>
-          </div>
-        ))}
-      </div>
-    </div>
-  </div>
-);
+
     
 // Componente de Contato
 const ContactView = () => (
@@ -1143,21 +1121,21 @@ const ContactView = () => (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-4">
           <div className="flex items-center">
-            <Phone className="h-6 w-6 text-yellow-500 mr-3" />
+            <Phone className="h-6 w-6 text-white mr-3" />
             <div>
               <p className="text-white font-semibold">Telefone</p>
-              <p className="text-gray-400">(11) 99999-8888</p>
+              <p className="text-gray-400">(11) 98497-3367</p>
             </div>
           </div>
           <div className="flex items-center">
-            <MapPin className="h-6 w-6 text-yellow-500 mr-3" />
+            <MapPin className="h-6 w-6 text-white mr-3" />
             <div>
               <p className="text-white font-semibold">Endereço</p>
-              <p className="text-gray-400">Rua das Flores, 123<br />Centro - São Paulo/SP</p>
+              <p className="text-gray-400">Av. Riacho dos Machados, 1067<br />ZL - São Paulo/SP</p>
             </div>
           </div>
           <div className="flex items-center">
-            <Clock className="h-6 w-6 text-yellow-500 mr-3" />
+            <Clock className="h-6 w-6 text-white mr-3" />
             <div>
               <p className="text-white font-semibold">Horário de Funcionamento</p>
               <p className="text-gray-400">Segunda a Sábado: 09:00 às 18:00</p>
@@ -1170,21 +1148,21 @@ const ContactView = () => (
             <input
               type="text"
               placeholder="Seu nome"
-              className="w-full bg-gray-600 text-white border-gray-500 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+              className="w-full bg-gray-600 text-white border-gray-500 rounded-lg p-3 focus:ring-white focus:border-white"
             />
             <input
               type="email"
               placeholder="Seu email"
-              className="w-full bg-gray-600 text-white border-gray-500 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+              className="w-full bg-gray-600 text-white border-gray-500 rounded-lg p-3 focus:ring-white focus:border-white"
             />
             <textarea
               placeholder="Sua mensagem"
               rows="4"
-              className="w-full bg-gray-600 text-white border-gray-500 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+              className="w-full bg-gray-600 text-white border-gray-500 rounded-lg p-3 focus:ring-white focus:border-white"
             ></textarea>
             <button
               type="submit"
-              className="w-full bg-yellow-500 text-gray-900 font-bold py-2 px-4 rounded-lg hover:bg-yellow-400 transition-all"
+              className="w-full bg-white text-gray-900 font-bold py-2 px-4 rounded-lg hover:bg-gray-100 transition-all"
             >
               Enviar Mensagem
             </button>
@@ -1198,7 +1176,7 @@ const ContactView = () => (
 // Componente de Carregamento
 const LoadingSpinner = ({ text = "Carregando..." }) => (
   <div className="flex flex-col items-center justify-center p-8 text-center">
-    <svg className="animate-spin h-10 w-10 text-yellow-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+    <svg className="animate-spin h-10 w-10 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
     </svg>
@@ -1209,13 +1187,13 @@ const LoadingSpinner = ({ text = "Carregando..." }) => (
 // Componente de Mensagem (Substituto do Alert)
 const MessageBox = ({ title, message, onDone }) => (
   <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4 animate-fade-in">
-    <div className="bg-gray-800 rounded-lg shadow-xl p-6 md:p-8 max-w-sm w-full text-center border-t-4 border-yellow-500">
+    <div className="bg-gray-800 rounded-lg shadow-xl p-6 md:p-8 max-w-sm w-full text-center border-t-4 border-white">
       <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
       <h3 className="text-2xl font-bold text-white mb-3">{title}</h3>
       <p className="text-gray-300 mb-6">{message}</p>
       <button
         onClick={onDone}
-        className="bg-yellow-500 text-gray-900 font-bold py-2 px-6 rounded-lg w-full hover:bg-yellow-400 transition-all"
+        className="bg-white text-gray-900 font-bold py-2 px-6 rounded-lg w-full hover:bg-gray-100 transition-all"
       >
         OK
       </button>
@@ -1242,7 +1220,7 @@ const ErrorBox = ({ message, onDone }) => (
 
 
 // --- Lógica de Geração de Horários ---
-const generateTimeSlots = (selectedDate, serviceDuration, existingBookings) => {
+const generateTimeSlots = (selectedDate, serviceDuration, existingBookings, lunchBreaks = [], barberId = null) => {
   const slots = [];
   const { start, end, breakStart, breakEnd } = WORKING_HOURS;
 
@@ -1266,6 +1244,13 @@ const generateTimeSlots = (selectedDate, serviceDuration, existingBookings) => {
   const breakEndTime = new Date(localDate);
   breakEndTime.setHours(breakEndH, breakEndM, 0, 0);
 
+  // Filtrar bloqueios de almoço para o barbeiro e data selecionados
+  const dateString = selectedDate.toISOString().split('T')[0];
+  const activeLunchBreaks = lunchBreaks.filter(lb => 
+    lb.date === dateString && 
+    (!barberId || lb.barberId === barberId)
+  );
+
   let currentSlotTime = new Date(startTime);
 
   while (currentSlotTime < endTime) {
@@ -1277,12 +1262,34 @@ const generateTimeSlots = (selectedDate, serviceDuration, existingBookings) => {
       break;
     }
 
-    // Verifica se o slot está DENTRO do horário de almoço
+    // Verifica se o slot está DENTRO do horário de almoço padrão
     const isDuringBreak = (slotStart >= breakStartTime && slotStart < breakEndTime) ||
                           (slotEnd > breakStartTime && slotEnd <= breakEndTime) ||
                           (slotStart < breakStartTime && slotEnd > breakEndTime);
+
+    // Verifica se o slot está bloqueado por horário de almoço do barbeiro
+    let isDuringLunchBreak = false;
+    for (const lunchBreak of activeLunchBreaks) {
+      const [lunchStartH, lunchStartM] = lunchBreak.startTime.split(':').map(Number);
+      const [lunchEndH, lunchEndM] = lunchBreak.endTime.split(':').map(Number);
+      
+      const lunchStart = new Date(localDate);
+      lunchStart.setHours(lunchStartH, lunchStartM, 0, 0);
+      
+      const lunchEnd = new Date(localDate);
+      lunchEnd.setHours(lunchEndH, lunchEndM, 0, 0);
+      
+      const isInLunchBreak = (slotStart >= lunchStart && slotStart < lunchEnd) ||
+                             (slotEnd > lunchStart && slotEnd <= lunchEnd) ||
+                             (slotStart < lunchStart && slotEnd > lunchEnd);
+      
+      if (isInLunchBreak) {
+        isDuringLunchBreak = true;
+        break;
+      }
+    }
                           
-    if (!isDuringBreak) {
+    if (!isDuringBreak && !isDuringLunchBreak) {
       // Verifica se o slot está ocupado
       const isOccupied = existingBookings.some(booking => {
         const bookingStart = new Date(booking.startTime);
@@ -1306,7 +1313,7 @@ const generateTimeSlots = (selectedDate, serviceDuration, existingBookings) => {
 
 
 // --- Componente Principal do Fluxo de Agendamento ---
-const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking, services, barbers }) => {
+const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking, services, barbers, lunchBreaks = [] }) => {
   const [step, setStep] = useState(1);
   const [selectedService, setSelectedService] = useState(null);
   const [selectedBarber, setSelectedBarber] = useState(null); // NOVO ESTADO
@@ -1366,11 +1373,17 @@ const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking, servic
                b.barberId === selectedBarber.id;
       });
       
-      const slots = generateTimeSlots(selectedDate, selectedService?.duration || 30, bookingsForDayAndBarber);
+      const slots = generateTimeSlots(
+        selectedDate, 
+        selectedService?.duration || 30, 
+        bookingsForDayAndBarber,
+        lunchBreaks,
+        selectedBarber?.id
+      );
       setAvailableSlots(slots);
       setIsLoadingSlots(false);
     }
-  }, [selectedDate, selectedService, selectedBarber, bookings]);
+  }, [selectedDate, selectedService, selectedBarber, bookings, lunchBreaks]);
 
   // Funções de Seleção
   const handleSelectService = (service) => {
@@ -1517,7 +1530,7 @@ const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking, servic
     step > 1 && step < 6 ? ( // ATUALIZADO
       <button
         onClick={goBack}
-        className="absolute top-3 left-3 sm:top-4 sm:left-4 flex items-center text-gray-300 hover:text-yellow-500 transition-colors text-sm sm:text-base"
+        className="absolute top-3 left-3 sm:top-4 sm:left-4 flex items-center text-gray-300 hover:text-white transition-colors text-sm sm:text-base"
       >
         <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5 mr-1" />
         <span className="hidden sm:inline">Voltar</span>
@@ -1540,14 +1553,14 @@ const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking, servic
                 <button
                   key={service.id}
                   onClick={() => handleSelectService(service)}
-                    className="bg-gray-700 p-3 sm:p-4 rounded-lg shadow-lg text-left w-full hover:bg-gray-600 hover:ring-2 hover:ring-yellow-500 transition-all"
+                    className="bg-gray-700 p-3 sm:p-4 rounded-lg shadow-lg text-left w-full hover:bg-gray-600 hover:ring-2 hover:ring-white transition-all"
                 >
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-base sm:text-lg font-semibold text-white">{service?.name || 'Serviço'}</p>
                       <p className="text-xs sm:text-sm text-gray-300">{(service?.duration || 30)} min | R$ {(service?.price || 0).toFixed(2)}</p>
                     </div>
-                    <Scissors className="h-6 w-6 sm:h-8 sm:w-8 text-yellow-500" />
+                    <Scissors className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
                   </div>
                 </button>
                 ))
@@ -1572,11 +1585,11 @@ const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking, servic
                 <button
                   key={barber.id}
                   onClick={() => handleSelectBarber(barber)}
-                    className={`bg-gray-700 p-3 sm:p-4 rounded-lg shadow-lg text-center w-full hover:bg-gray-600 hover:ring-2 hover:ring-yellow-500 transition-all flex flex-col items-center ${
-                    selectedBarber?.id === barber.id ? 'ring-2 ring-yellow-500' : ''
+                    className={`bg-gray-700 p-3 sm:p-4 rounded-lg shadow-lg text-center w-full hover:bg-gray-600 hover:ring-2 hover:ring-white transition-all flex flex-col items-center ${
+                    selectedBarber?.id === barber.id ? 'ring-2 ring-white' : ''
                   }`}
                 >
-                    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-yellow-500 rounded-full mb-2 sm:mb-3 flex items-center justify-center">
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white rounded-full mb-2 sm:mb-3 flex items-center justify-center">
                       <span className="text-gray-900 font-bold text-lg sm:text-xl">{(barber?.name || 'B').charAt(0)}</span>
                     </div>
                     <p className="text-base sm:text-lg font-semibold text-white">{barber?.name || 'Barbeiro'}</p>
@@ -1584,8 +1597,8 @@ const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking, servic
                       {barber?.specialties && barber.specialties.length > 0 ? barber.specialties.join(', ') : 'Barbeiro'}
                     </p>
                     <div className="flex items-center mt-1">
-                      <Star className="h-3 w-3 sm:h-4 sm:w-4 text-yellow-400 mr-1" />
-                      <span className="text-yellow-400 text-xs sm:text-sm font-semibold">{(barber?.rating || 5.0).toFixed(1)}</span>
+                      <Star className="h-3 w-3 sm:h-4 sm:w-4 text-white mr-1" />
+                      <span className="text-white text-xs sm:text-sm font-semibold">{(barber?.rating || 5.0).toFixed(1)}</span>
                     </div>
                 </button>
                 ))
@@ -1612,7 +1625,7 @@ const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking, servic
                   onClick={() => handleSelectDate(date)}
                   className={`p-3 rounded-lg text-center transition-all ${
                     selectedDate?.toISOString() === date.toISOString()
-                      ? 'bg-yellow-500 text-gray-900 font-bold'
+                      ? 'bg-white text-gray-900 font-bold'
                       : 'bg-gray-700 text-white hover:bg-gray-600'
                   }`}
                 >
@@ -1644,7 +1657,7 @@ const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking, servic
                     onClick={() => handleSelectTime(time)}
                     className={`p-3 rounded-lg text-center transition-all ${
                       selectedTime?.toISOString() === time.toISOString()
-                        ? 'bg-yellow-500 text-gray-900 font-bold'
+                        ? 'bg-white text-gray-900 font-bold'
                         : 'bg-gray-700 text-white hover:bg-gray-600'
                     }`}
                   >
@@ -1671,9 +1684,9 @@ const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking, servic
             <div className="bg-gray-700 p-4 rounded-lg mb-4 text-center space-y-2">
               <p className="text-lg text-white font-semibold">{selectedService?.name}</p>
               <p className="text-gray-300">
-                <span className="font-medium text-yellow-500">{selectedDate?.toLocaleDateString('pt-BR')}</span>
+                <span className="font-medium text-white">{selectedDate?.toLocaleDateString('pt-BR')}</span>
                 {' às '}
-                <span className="font-medium text-yellow-500">{selectedTime?.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+                <span className="font-medium text-white">{selectedTime?.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
               </p>
               <p className="text-gray-300">Com: {selectedBarber?.name}</p>
             </div>
@@ -1689,7 +1702,7 @@ const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking, servic
                     value={clientInfo.name}
                     onChange={handleInfoChange}
                     required
-                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-white focus:border-white"
                     placeholder="João Silva"
                   />
                 </div>
@@ -1702,7 +1715,7 @@ const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking, servic
                     value={clientInfo.phone}
                     onChange={handleInfoChange}
                     required
-                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-white focus:border-white"
                     placeholder="(11) 99999-8888"
                   />
                 </div>
@@ -1732,7 +1745,7 @@ const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking, servic
               <p className="text-red-500">Erro: Dados do agendamento não encontrados</p>
               <button 
                 onClick={() => setStep(1)}
-                className="bg-yellow-500 text-gray-900 font-bold py-2 px-6 rounded-lg mt-4"
+                className="bg-white text-gray-900 font-bold py-2 px-6 rounded-lg mt-4"
               >
                 Voltar ao Início
               </button>
@@ -1789,7 +1802,7 @@ const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking, servic
             
             <button
               onClick={resetFlow}
-              className="bg-yellow-500 text-gray-900 font-bold py-2 px-6 rounded-lg w-full hover:bg-yellow-400 transition-all"
+              className="bg-white text-gray-900 font-bold py-2 px-6 rounded-lg w-full hover:bg-gray-100 transition-all"
             >
               OK
             </button>
@@ -1802,7 +1815,7 @@ const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking, servic
             <p className="text-red-500">Erro: Step {step} não encontrado</p>
             <button 
               onClick={() => setStep(1)}
-              className="bg-yellow-500 text-gray-900 font-bold py-2 px-6 rounded-lg mt-4"
+              className="bg-white text-gray-900 font-bold py-2 px-6 rounded-lg mt-4"
             >
               Voltar ao Início
             </button>
@@ -1821,18 +1834,18 @@ const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking, servic
             {stepNames.map((name, index) => (
               <span 
                 key={index}
-                className={`text-xs sm:text-sm ${index + 1 <= step ? 'text-yellow-500' : 'text-gray-500'} hidden sm:block`}
+                className={`text-xs sm:text-sm ${index + 1 <= step ? 'text-white' : 'text-gray-500'} hidden sm:block`}
               >
                 {name}
               </span>
             ))}
-            <span className="text-xs sm:text-sm text-yellow-500 sm:hidden">
+            <span className="text-xs sm:text-sm text-white sm:hidden">
               Passo {step} de 5
             </span>
           </div>
           <div className="w-full bg-gray-700 rounded-full h-2">
             <div 
-              className="bg-yellow-500 h-2 rounded-full transition-all duration-300"
+              className="bg-white h-2 rounded-full transition-all duration-300"
               style={{ width: `${(step / 5) * 100}%` }}
             ></div>
           </div>
@@ -1867,7 +1880,7 @@ const BookingsList = ({ bookings, userId, isLoading }) => {
   };
   
   const BookingCard = ({ booking }) => (
-    <div className="bg-gray-700 p-4 rounded-lg shadow-md border-l-4 border-yellow-500">
+    <div className="bg-gray-700 p-4 rounded-lg shadow-md border-l-4 border-white">
       <p className="text-lg font-semibold text-white">{booking.serviceName}</p>
       <p className="text-sm text-gray-300">Cliente: {booking.clientName}</p>
       <p className="text-sm text-gray-300">Data: {formatDate(booking.startTime)}</p>
@@ -1893,7 +1906,7 @@ const BookingsList = ({ bookings, userId, isLoading }) => {
     <div className="animate-fade-in space-y-6">
       {/* Meus Agendamentos */}
       <div>
-        <h3 className="text-2xl font-semibold text-white mb-4 border-l-4 border-yellow-500 pl-3">Meus Próximos Horários</h3>
+        <h3 className="text-2xl font-semibold text-white mb-4 border-l-4 border-white pl-3">Meus Próximos Horários</h3>
         {myBookings.length > 0 ? (
           <div className="space-y-4">
             {myBookings.map(b => <BookingCard key={b.id} booking={b} />)}
@@ -1961,7 +1974,7 @@ const TodaysBookingsList = ({ bookings, isLoading, onComplete }) => {
 
 
 // Card de Estatística
-const StatCard = ({ title, value, icon, colorClass = 'text-yellow-500' }) => {
+const StatCard = ({ title, value, icon, colorClass = 'text-white' }) => {
   const IconComponent = icon;
   return (
   <div className="bg-gray-700 p-4 rounded-lg shadow-lg flex items-center">
@@ -2170,7 +2183,7 @@ const AddWalkInForm = ({ services = [], barbers = [], userId, onAddBooking }) =>
             id="walkin-service" 
             value={selectedServiceId}
             onChange={handleServiceChange}
-            className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+            className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-white focus:border-white"
           >
             {availableServices.length > 0 && availableServices.map(service => (
               <option key={service.id} value={service.id}>
@@ -2190,7 +2203,7 @@ const AddWalkInForm = ({ services = [], barbers = [], userId, onAddBooking }) =>
               value={customServiceName}
               onChange={(event) => setCustomServiceName(event.target.value)}
               placeholder="Ex.: Corte degrade + barba"
-              className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+              className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-white focus:border-white"
             />
           </div>
         )}
@@ -2205,7 +2218,7 @@ const AddWalkInForm = ({ services = [], barbers = [], userId, onAddBooking }) =>
               step="0.5"
               value={price}
               onChange={(event) => setPrice(event.target.value)}
-              className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+              className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-white focus:border-white"
             />
           </div>
           <div>
@@ -2218,7 +2231,7 @@ const AddWalkInForm = ({ services = [], barbers = [], userId, onAddBooking }) =>
               step="5"
               value={serviceDuration}
               onChange={(event) => setServiceDuration(event.target.value)}
-              className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+              className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-white focus:border-white"
             />
           </div>
         </div>
@@ -2229,7 +2242,7 @@ const AddWalkInForm = ({ services = [], barbers = [], userId, onAddBooking }) =>
             id="walkin-barber" 
             value={barberId} 
             onChange={(event) => setBarberId(event.target.value)}
-            className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+            className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-white focus:border-white"
           >
             {availableBarbers.length > 0 ? (
               availableBarbers.map(barber => (
@@ -2249,7 +2262,7 @@ const AddWalkInForm = ({ services = [], barbers = [], userId, onAddBooking }) =>
             type="text" 
             value={clientName} 
               onChange={(event) => setClientName(event.target.value)}
-            className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500" 
+            className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-white focus:border-white" 
           />
         </div>
         <div>
@@ -2260,7 +2273,7 @@ const AddWalkInForm = ({ services = [], barbers = [], userId, onAddBooking }) =>
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
               placeholder="Ex.: Pagamento em dinheiro, barba completa..."
-            className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500" 
+            className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-white focus:border-white" 
           />
         </div>
         </div>
@@ -2268,7 +2281,7 @@ const AddWalkInForm = ({ services = [], barbers = [], userId, onAddBooking }) =>
         <button 
           type="submit" 
           disabled={isSubmitting || !isFormValid}
-          className="w-full bg-yellow-500 text-gray-900 font-bold py-3 px-6 rounded-lg hover:bg-yellow-400 transition-all disabled:bg-gray-600 disabled:text-gray-300"
+          className="w-full bg-white text-gray-900 font-bold py-3 px-6 rounded-lg hover:bg-gray-100 transition-all disabled:bg-gray-600 disabled:text-gray-300"
         >
           {isSubmitting ? 'Registrando corte...' : 'Registrar corte avulso'}
         </button>
@@ -2352,7 +2365,7 @@ const DashboardView = ({ todayBookings, isLoadingTodayBookings, history, isLoadi
     const price = booking.price || SERVICES.find(s => s.id === booking.serviceId)?.price || 0;
     
     return (
-      <div className="bg-gray-700 p-4 rounded-lg shadow-md border-l-4 border-yellow-500">
+      <div className="bg-gray-700 p-4 rounded-lg shadow-md border-l-4 border-white">
         <div className="flex justify-between items-start">
           <div>
             <p className="text-lg font-semibold text-white">{booking.serviceName}</p>
@@ -2386,7 +2399,7 @@ const DashboardView = ({ todayBookings, isLoadingTodayBookings, history, isLoadi
             onClick={() => setTimeFilter(filter)}
             className={`py-2 px-4 rounded-lg font-medium transition-all text-sm md:text-base ${
               timeFilter === filter 
-                ? 'bg-yellow-500 text-gray-900' 
+                ? 'bg-white text-gray-900' 
                 : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
             }`}
           >
@@ -2531,7 +2544,7 @@ const AdminDashboard = ({ bookings, services = [], barbers = [], onAddWalkIn, us
               onClick={() => setTimeFilter(filter)}
               className={`py-2 px-3 sm:px-4 rounded-lg font-medium transition-all text-xs sm:text-sm ${
                 timeFilter === filter 
-                  ? 'bg-yellow-500 text-gray-900' 
+                  ? 'bg-white text-gray-900' 
                   : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
               }`}
             >
@@ -2566,7 +2579,7 @@ const AdminDashboard = ({ bookings, services = [], barbers = [], onAddWalkIn, us
         
         <div className="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-xl">
           <div className="flex items-center">
-            <Star className="h-6 w-6 sm:h-8 sm:w-8 text-yellow-500 mr-2 sm:mr-4" />
+            <Star className="h-6 w-6 sm:h-8 sm:w-8 text-white mr-2 sm:mr-4" />
             <div>
               <p className="text-xs sm:text-sm text-gray-400">Avaliação Média</p>
               <p className="text-lg sm:text-2xl font-bold text-white">{stats.averageRating.toFixed(1)}</p>
@@ -2693,10 +2706,10 @@ const AdminBookings = ({ bookings, onUpdateBooking, onConfirmPayment }) => {
       
       {/* Aviso de duplicatas */}
       {duplicateWarning && (
-        <div className="bg-yellow-900 border border-yellow-500 rounded-lg p-4">
+        <div className="bg-white border border-white/40 rounded-lg p-4">
           <div className="flex items-center">
-            <AlertCircle className="h-5 w-5 text-yellow-400 mr-2" />
-            <span className="text-yellow-200">{duplicateWarning}</span>
+            <AlertCircle className="h-5 w-5 text-gray-900 mr-2" />
+            <span className="text-gray-900">{duplicateWarning}</span>
           </div>
         </div>
       )}
@@ -2726,11 +2739,11 @@ const AdminBookings = ({ bookings, onUpdateBooking, onConfirmPayment }) => {
                     {booking.paymentConfirmed ? (
                       <span className="bg-green-600 text-white px-2 py-1 rounded text-xs">Pago</span>
                     ) : (
-                      <span className="bg-yellow-600 text-white px-2 py-1 rounded text-xs">Pendente</span>
+                      <span className="bg-white text-gray-900 px-2 py-1 rounded text-xs border border-white/40">Pendente</span>
                     )}
                   </div>
                   <div className="flex items-center">
-                    <Star className="h-3 w-3 sm:h-4 sm:w-4 text-yellow-500 mr-1" />
+                    <Star className="h-3 w-3 sm:h-4 sm:w-4 text-white mr-1" />
                     <span className="text-xs sm:text-sm text-gray-300">{booking.rating}</span>
                   </div>
                   <div className="flex flex-col gap-2 w-full sm:w-auto">
@@ -2844,7 +2857,7 @@ const AdminClients = ({ bookings }) => {
                       <button className="bg-blue-600 text-white px-2 py-1 rounded text-xs hover:bg-blue-500 mr-1">
                         Histórico
                       </button>
-                      <button className="bg-yellow-600 text-white px-2 py-1 rounded text-xs hover:bg-yellow-500">
+                      <button className="bg-white text-gray-900 px-2 py-1 rounded text-xs hover:bg-gray-100">
                         Contatar
                       </button>
                     </td>
@@ -2881,7 +2894,7 @@ const AdminClients = ({ bookings }) => {
                     <button className="bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-500 flex-1">
                       Ver Histórico
                     </button>
-                    <button className="bg-yellow-600 text-white px-3 py-1 rounded text-xs hover:bg-yellow-500 flex-1">
+                    <button className="bg-white text-gray-900 px-3 py-1 rounded text-xs hover:bg-gray-100 flex-1">
                       Contatar
                     </button>
                   </div>
@@ -2966,7 +2979,7 @@ const AdminAnalytics = ({ bookings }) => {
               <span className="text-gray-300">09:00 - 10:00</span>
               <div className="flex items-center">
                 <div className="w-32 bg-gray-700 rounded-full h-2 mr-3">
-                  <div className="bg-yellow-500 h-2 rounded-full" style={{width: '75%'}}></div>
+                  <div className="bg-white h-2 rounded-full" style={{width: '75%'}}></div>
                 </div>
                 <span className="text-white">75%</span>
               </div>
@@ -2975,7 +2988,7 @@ const AdminAnalytics = ({ bookings }) => {
               <span className="text-gray-300">14:00 - 15:00</span>
               <div className="flex items-center">
                 <div className="w-32 bg-gray-700 rounded-full h-2 mr-3">
-                  <div className="bg-yellow-500 h-2 rounded-full" style={{width: '90%'}}></div>
+                  <div className="bg-white h-2 rounded-full" style={{width: '90%'}}></div>
                 </div>
                 <span className="text-white">90%</span>
               </div>
@@ -2984,7 +2997,7 @@ const AdminAnalytics = ({ bookings }) => {
               <span className="text-gray-300">16:00 - 17:00</span>
               <div className="flex items-center">
                 <div className="w-32 bg-gray-700 rounded-full h-2 mr-3">
-                  <div className="bg-yellow-500 h-2 rounded-full" style={{width: '60%'}}></div>
+                  <div className="bg-white h-2 rounded-full" style={{width: '60%'}}></div>
                 </div>
                 <span className="text-white">60%</span>
               </div>
@@ -3018,7 +3031,7 @@ const AdminAnalytics = ({ bookings }) => {
               <span className="text-gray-300">3 estrelas</span>
               <div className="flex items-center">
                 <div className="w-32 bg-gray-700 rounded-full h-2 mr-3">
-                  <div className="bg-yellow-500 h-2 rounded-full" style={{width: '5%'}}></div>
+                  <div className="bg-white h-2 rounded-full" style={{width: '5%'}}></div>
                 </div>
                 <span className="text-white">5%</span>
               </div>
@@ -3033,7 +3046,7 @@ const AdminAnalytics = ({ bookings }) => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-gray-700 p-4 rounded-lg">
             <div className="flex items-center mb-2">
-              <Target className="h-5 w-5 text-yellow-500 mr-2" />
+              <Target className="h-5 w-5 text-white mr-2" />
               <span className="text-white font-semibold">Receita Mensal</span>
             </div>
             <p className="text-2xl font-bold text-green-400">R$ {analytics.monthlyRevenue.toFixed(2)}</p>
@@ -3057,13 +3070,13 @@ const AdminAnalytics = ({ bookings }) => {
           
           <div className="bg-gray-700 p-4 rounded-lg">
             <div className="flex items-center mb-2">
-              <Star className="h-5 w-5 text-yellow-500 mr-2" />
+              <Star className="h-5 w-5 text-white mr-2" />
               <span className="text-white font-semibold">Avaliação Média</span>
             </div>
-            <p className="text-2xl font-bold text-yellow-400">{analytics.monthlyRating.toFixed(1)}</p>
+            <p className="text-2xl font-bold text-white">{analytics.monthlyRating.toFixed(1)}</p>
             <p className="text-sm text-gray-400">Meta: 5.0</p>
             <div className="w-full bg-gray-600 rounded-full h-2 mt-2">
-              <div className="bg-yellow-500 h-2 rounded-full" style={{width: `${(analytics.monthlyRating / 5) * 100}%`}}></div>
+              <div className="bg-white h-2 rounded-full" style={{width: `${(analytics.monthlyRating / 5) * 100}%`}}></div>
             </div>
           </div>
         </div>
@@ -3073,7 +3086,184 @@ const AdminAnalytics = ({ bookings }) => {
 };
 
 // Configurações Admin
-const AdminSettings = ({ onDeleteAllData, services, schedules, barbers, onAddService, onUpdateService, onDeleteService, onAddSchedule, onUpdateSchedule, onDeleteSchedule, onAddBarber, onUpdateBarber, onDeleteBarber }) => {
+// Componente de Gerenciamento de Horário de Almoço
+const LunchBreakManager = ({ barbers, lunchBreaks = [], onBlockLunch, onUnblockLunch }) => {
+  const [selectedBarber, setSelectedBarber] = useState('');
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const activeBarbers = barbers.filter(b => b.isActive !== false);
+
+  const handleBlockLunch = async () => {
+    if (!selectedBarber || !startTime || !endTime || !date) {
+      alert('Por favor, preencha todos os campos');
+      return;
+    }
+
+    if (startTime >= endTime) {
+      alert('O horário de início deve ser antes do horário de término');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await onBlockLunch({
+        barberId: selectedBarber,
+        barberName: activeBarbers.find(b => b.id === selectedBarber)?.name || '',
+        date,
+        startTime,
+        endTime,
+        createdAt: new Date()
+      });
+      
+      // Limpar formulário
+      setStartTime('');
+      setEndTime('');
+      alert('Horário de almoço bloqueado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao bloquear horário:', error);
+      alert('Erro ao bloquear horário de almoço');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleUnblock = async (lunchBreakId) => {
+    if (confirm('Deseja realmente desbloquear este horário?')) {
+      try {
+        await onUnblockLunch(lunchBreakId);
+        alert('Horário desbloqueado com sucesso!');
+      } catch (error) {
+        console.error('Erro ao desbloquear:', error);
+        alert('Erro ao desbloquear horário');
+      }
+    }
+  };
+
+  // Filtrar bloqueios do barbeiro selecionado e data selecionada
+  const filteredBreaks = lunchBreaks.filter(lb => 
+    (!selectedBarber || lb.barberId === selectedBarber) &&
+    lb.date === date
+  );
+
+  return (
+    <div className="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-xl">
+      <h3 className="text-lg sm:text-xl font-semibold text-white mb-4 flex items-center">
+        <Clock className="h-5 w-5 mr-2" />
+        Bloquear Horário de Almoço
+      </h3>
+      
+      <div className="space-y-4">
+        {/* Formulário de Bloqueio */}
+        <div className="bg-gray-700 p-4 rounded-lg space-y-3">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Barbeiro</label>
+            <select
+              value={selectedBarber}
+              onChange={(e) => setSelectedBarber(e.target.value)}
+              className="w-full bg-gray-600 text-white border-gray-500 rounded-lg p-3 focus:ring-white focus:border-white"
+              disabled={isSubmitting}
+            >
+              <option value="">Selecione um barbeiro</option>
+              {activeBarbers.map(barber => (
+                <option key={barber.id} value={barber.id}>{barber.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Data</label>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              min={new Date().toISOString().split('T')[0]}
+              className="w-full bg-gray-600 text-white border-gray-500 rounded-lg p-3 focus:ring-white focus:border-white"
+              disabled={isSubmitting}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Início</label>
+              <input
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                className="w-full bg-gray-600 text-white border-gray-500 rounded-lg p-3 focus:ring-white focus:border-white"
+                disabled={isSubmitting}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Término</label>
+              <input
+                type="time"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                className="w-full bg-gray-600 text-white border-gray-500 rounded-lg p-3 focus:ring-white focus:border-white"
+                disabled={isSubmitting}
+              />
+            </div>
+          </div>
+
+          <button
+            onClick={handleBlockLunch}
+            disabled={isSubmitting || !selectedBarber || !startTime || !endTime}
+            className="w-full bg-red-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-red-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+          >
+            {isSubmitting ? (
+              <>
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                Bloqueando...
+              </>
+            ) : (
+              <>
+                <Lock className="h-5 w-5 mr-2" />
+                Bloquear Horário
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* Lista de Bloqueios Ativos */}
+        <div>
+          <h4 className="text-md font-semibold text-white mb-3">Horários Bloqueados ({date})</h4>
+          {filteredBreaks.length > 0 ? (
+            <div className="space-y-2">
+              {filteredBreaks.map(lb => (
+                <div key={lb.id} className="bg-red-900/30 border border-red-500 p-3 rounded-lg flex justify-between items-center">
+                  <div>
+                    <p className="text-white font-semibold">{lb.barberName}</p>
+                    <p className="text-red-300 text-sm">
+                      {lb.startTime} - {lb.endTime}
+                    </p>
+                    <p className="text-gray-400 text-xs">
+                      {new Date(lb.date).toLocaleDateString('pt-BR')}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleUnblock(lb.id)}
+                    className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-500 transition-all"
+                  >
+                    Desbloquear
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-400 text-center py-4 text-sm">
+              Nenhum horário bloqueado para esta data
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const AdminSettings = ({ onDeleteAllData, services, schedules, barbers, onAddService, onUpdateService, onDeleteService, onAddSchedule, onUpdateSchedule, onDeleteSchedule, onAddBarber, onUpdateBarber, onDeleteBarber, lunchBreaks, onBlockLunch, onUnblockLunch }) => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteProgress, setDeleteProgress] = useState('');
@@ -3265,48 +3455,15 @@ const AdminSettings = ({ onDeleteAllData, services, schedules, barbers, onAddSer
         </div>
       )}
       
+      {/* Gerenciador de Horário de Almoço */}
+      <LunchBreakManager 
+        barbers={barbers}
+        lunchBreaks={lunchBreaks}
+        onBlockLunch={onBlockLunch}
+        onUnblockLunch={onUnblockLunch}
+      />
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-        {/* Configurações de Horários */}
-        <div className="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-xl">
-          <h3 className="text-lg sm:text-xl font-semibold text-white mb-3 sm:mb-4">Horários de Funcionamento</h3>
-          <div className="space-y-3 sm:space-y-4">
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-1 sm:mb-2">Horário de Abertura</label>
-              <input
-                type="time"
-                defaultValue="09:00"
-                className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-2 sm:p-3 focus:ring-yellow-500 focus:border-yellow-500 text-sm sm:text-base"
-              />
-            </div>
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-1 sm:mb-2">Horário de Fechamento</label>
-              <input
-                type="time"
-                defaultValue="18:00"
-                className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-2 sm:p-3 focus:ring-yellow-500 focus:border-yellow-500 text-sm sm:text-base"
-              />
-            </div>
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-1 sm:mb-2">Início do Almoço</label>
-              <input
-                type="time"
-                defaultValue="12:00"
-                className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Fim do Almoço</label>
-              <input
-                type="time"
-                defaultValue="13:00"
-                className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
-              />
-            </div>
-            <button className="w-full bg-yellow-500 text-gray-900 font-bold py-2 px-4 rounded-lg hover:bg-yellow-400 transition-all">
-              Salvar Configurações
-            </button>
-          </div>
-        </div>
 
         {/* Configurações de Serviços */}
         <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
@@ -3452,21 +3609,21 @@ const AdminSettings = ({ onDeleteAllData, services, schedules, barbers, onAddSer
               <p className="text-white font-semibold">Lembretes de Agendamento</p>
               <p className="text-sm text-gray-400">Enviar lembretes 24h antes do agendamento</p>
             </div>
-            <input type="checkbox" defaultChecked className="w-5 h-5 text-yellow-500" />
+            <input type="checkbox" defaultChecked className="w-5 h-5 text-white" />
           </div>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-white font-semibold">Confirmação por WhatsApp</p>
               <p className="text-sm text-gray-400">Enviar confirmação via WhatsApp</p>
             </div>
-            <input type="checkbox" defaultChecked className="w-5 h-5 text-yellow-500" />
+            <input type="checkbox" defaultChecked className="w-5 h-5 text-white" />
           </div>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-white font-semibold">Feedback Pós-Serviço</p>
               <p className="text-sm text-gray-400">Solicitar avaliação após o serviço</p>
             </div>
-            <input type="checkbox" defaultChecked className="w-5 h-5 text-yellow-500" />
+            <input type="checkbox" defaultChecked className="w-5 h-5 text-white" />
           </div>
         </div>
       </div>
@@ -3526,7 +3683,7 @@ const AdminSettings = ({ onDeleteAllData, services, schedules, barbers, onAddSer
                     type="text"
                     value={serviceForm.name}
                     onChange={(e) => setServiceForm({...serviceForm, name: e.target.value})}
-                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-white focus:border-white"
                     required
                   />
                 </div>
@@ -3538,7 +3695,7 @@ const AdminSettings = ({ onDeleteAllData, services, schedules, barbers, onAddSer
                     step="0.01"
                     value={serviceForm.price}
                     onChange={(e) => setServiceForm({...serviceForm, price: e.target.value})}
-                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-white focus:border-white"
                     required
                   />
                 </div>
@@ -3549,7 +3706,7 @@ const AdminSettings = ({ onDeleteAllData, services, schedules, barbers, onAddSer
                     type="number"
                     value={serviceForm.duration}
                     onChange={(e) => setServiceForm({...serviceForm, duration: e.target.value})}
-                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-white focus:border-white"
                     required
                   />
                 </div>
@@ -3559,7 +3716,7 @@ const AdminSettings = ({ onDeleteAllData, services, schedules, barbers, onAddSer
                   <textarea
                     value={serviceForm.description}
                     onChange={(e) => setServiceForm({...serviceForm, description: e.target.value})}
-                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-white focus:border-white"
                     rows="3"
                   />
                 </div>
@@ -3578,7 +3735,7 @@ const AdminSettings = ({ onDeleteAllData, services, schedules, barbers, onAddSer
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 bg-yellow-500 text-gray-900 font-bold px-4 py-2 rounded-lg hover:bg-yellow-400 transition-colors"
+                    className="flex-1 bg-white text-gray-900 font-bold px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors"
                   >
                     {editingService ? 'Atualizar' : 'Adicionar'}
                   </button>
@@ -3604,7 +3761,7 @@ const AdminSettings = ({ onDeleteAllData, services, schedules, barbers, onAddSer
                   <select
                     value={scheduleForm.barberName}
                     onChange={(e) => setScheduleForm({...scheduleForm, barberName: e.target.value})}
-                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-white focus:border-white"
                     required
                   >
                     <option value="">Selecione um barbeiro</option>
@@ -3619,7 +3776,7 @@ const AdminSettings = ({ onDeleteAllData, services, schedules, barbers, onAddSer
                   <select
                     value={scheduleForm.dayOfWeek}
                     onChange={(e) => setScheduleForm({...scheduleForm, dayOfWeek: parseInt(e.target.value)})}
-                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-white focus:border-white"
                     required
                   >
                     <option value="">Selecione um dia</option>
@@ -3635,7 +3792,7 @@ const AdminSettings = ({ onDeleteAllData, services, schedules, barbers, onAddSer
                     type="time"
                     value={scheduleForm.startTime}
                     onChange={(e) => setScheduleForm({...scheduleForm, startTime: e.target.value})}
-                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-white focus:border-white"
                     required
                   />
                 </div>
@@ -3646,7 +3803,7 @@ const AdminSettings = ({ onDeleteAllData, services, schedules, barbers, onAddSer
                     type="time"
                     value={scheduleForm.endTime}
                     onChange={(e) => setScheduleForm({...scheduleForm, endTime: e.target.value})}
-                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-white focus:border-white"
                     required
                   />
                 </div>
@@ -3657,7 +3814,7 @@ const AdminSettings = ({ onDeleteAllData, services, schedules, barbers, onAddSer
                     id="isActive"
                     checked={scheduleForm.isActive}
                     onChange={(e) => setScheduleForm({...scheduleForm, isActive: e.target.checked})}
-                    className="w-4 h-4 text-yellow-500 bg-gray-700 border-gray-600 rounded focus:ring-yellow-500"
+                    className="w-4 h-4 text-white bg-gray-700 border-gray-600 rounded focus:ring-white"
                   />
                   <label htmlFor="isActive" className="ml-2 text-sm text-gray-300">
                     Horário ativo
@@ -3678,7 +3835,7 @@ const AdminSettings = ({ onDeleteAllData, services, schedules, barbers, onAddSer
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 bg-yellow-500 text-gray-900 font-bold px-4 py-2 rounded-lg hover:bg-yellow-400 transition-colors"
+                    className="flex-1 bg-white text-gray-900 font-bold px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors"
                   >
                     {editingSchedule ? 'Atualizar' : 'Adicionar'}
                   </button>
@@ -3705,7 +3862,7 @@ const AdminSettings = ({ onDeleteAllData, services, schedules, barbers, onAddSer
                     type="text"
                     value={barberForm.name}
                     onChange={(e) => setBarberForm({...barberForm, name: e.target.value})}
-                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-white focus:border-white"
                     required
                   />
                 </div>
@@ -3716,7 +3873,7 @@ const AdminSettings = ({ onDeleteAllData, services, schedules, barbers, onAddSer
                     type="text"
                     value={barberForm.specialties.join(', ')}
                     onChange={(e) => setBarberForm({...barberForm, specialties: e.target.value.split(',').map(s => s.trim()).filter(s => s)})}
-                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-white focus:border-white"
                     placeholder="Ex: Corte masculino, Barba, Bigode"
                   />
                 </div>
@@ -3727,7 +3884,7 @@ const AdminSettings = ({ onDeleteAllData, services, schedules, barbers, onAddSer
                     type="text"
                     value={barberForm.experience}
                     onChange={(e) => setBarberForm({...barberForm, experience: e.target.value})}
-                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-white focus:border-white"
                     placeholder="Ex: 5 anos de experiência"
                   />
                 </div>
@@ -3741,7 +3898,7 @@ const AdminSettings = ({ onDeleteAllData, services, schedules, barbers, onAddSer
                     step="0.1"
                     value={barberForm.rating}
                     onChange={(e) => setBarberForm({...barberForm, rating: parseFloat(e.target.value)})}
-                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-white focus:border-white"
                     required
                   />
                 </div>
@@ -3752,7 +3909,7 @@ const AdminSettings = ({ onDeleteAllData, services, schedules, barbers, onAddSer
                     type="tel"
                     value={barberForm.phone}
                     onChange={(e) => setBarberForm({...barberForm, phone: e.target.value})}
-                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-white focus:border-white"
                   />
                 </div>
                 
@@ -3762,7 +3919,7 @@ const AdminSettings = ({ onDeleteAllData, services, schedules, barbers, onAddSer
                     type="email"
                     value={barberForm.email}
                     onChange={(e) => setBarberForm({...barberForm, email: e.target.value})}
-                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-white focus:border-white"
                   />
                 </div>
                 
@@ -3772,7 +3929,7 @@ const AdminSettings = ({ onDeleteAllData, services, schedules, barbers, onAddSer
                     id="barberIsActive"
                     checked={barberForm.isActive}
                     onChange={(e) => setBarberForm({...barberForm, isActive: e.target.checked})}
-                    className="w-4 h-4 text-yellow-500 bg-gray-700 border-gray-600 rounded focus:ring-yellow-500"
+                    className="w-4 h-4 text-white bg-gray-700 border-gray-600 rounded focus:ring-white"
                   />
                   <label htmlFor="barberIsActive" className="ml-2 text-sm text-gray-300">
                     Barbeiro ativo
@@ -3793,7 +3950,7 @@ const AdminSettings = ({ onDeleteAllData, services, schedules, barbers, onAddSer
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 bg-yellow-500 text-gray-900 font-bold px-4 py-2 rounded-lg hover:bg-yellow-400 transition-colors"
+                    className="flex-1 bg-white text-gray-900 font-bold px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors"
                   >
                     {editingBarber ? 'Atualizar' : 'Adicionar'}
                   </button>
@@ -3812,7 +3969,7 @@ const InstallPrompt = ({ onInstall, onClose, isVisible }) => {
   if (!isVisible) return null;
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 bg-yellow-500 text-gray-900 p-4 rounded-lg shadow-xl z-50 animate-fade-in-down">
+    <div className="fixed bottom-4 left-4 right-4 bg-white text-gray-900 p-4 rounded-lg shadow-xl z-50 animate-fade-in-down">
       <div className="flex items-center justify-between">
         <div className="flex items-center">
           <Scissors className="h-6 w-6 mr-3" />
@@ -3824,7 +3981,7 @@ const InstallPrompt = ({ onInstall, onClose, isVisible }) => {
         <div className="flex space-x-2">
           <button
             onClick={onInstall}
-            className="bg-gray-900 text-yellow-500 px-3 py-1 rounded text-sm font-semibold hover:bg-gray-800 transition-colors"
+            className="bg-gray-900 text-white px-3 py-1 rounded text-sm font-semibold hover:bg-gray-800 transition-colors"
           >
             Instalar
           </button>
@@ -3853,7 +4010,7 @@ const InstallInstructions = ({ onClose, isVisible }) => {
         <div className="p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center">
-              <Scissors className="h-8 w-8 text-yellow-500 mr-3" />
+              <Scissors className="h-8 w-8 text-white mr-3" />
               <h3 className="text-xl font-bold text-white">Instalar App</h3>
             </div>
             <button
@@ -3874,16 +4031,16 @@ const InstallInstructions = ({ onClose, isVisible }) => {
                 <h4 className="text-white font-semibold">📱 iPhone/iPad:</h4>
                 <div className="space-y-2 text-sm text-gray-300">
                   <div className="flex items-start">
-                    <span className="bg-yellow-500 text-gray-900 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">1</span>
-                    <span>Toque no botão <span className="bg-gray-700 px-2 py-1 rounded text-yellow-400">Compartilhar</span> na parte inferior da tela</span>
+                    <span className="bg-white text-gray-900 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">1</span>
+                    <span>Toque no botão <span className="bg-gray-700 px-2 py-1 rounded text-white">Compartilhar</span> na parte inferior da tela</span>
                   </div>
                   <div className="flex items-start">
-                    <span className="bg-yellow-500 text-gray-900 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">2</span>
-                    <span>Role para baixo e toque em <span className="bg-gray-700 px-2 py-1 rounded text-yellow-400">"Adicionar à Tela Inicial"</span></span>
+                    <span className="bg-white text-gray-900 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">2</span>
+                    <span>Role para baixo e toque em <span className="bg-gray-700 px-2 py-1 rounded text-white">"Adicionar à Tela Inicial"</span></span>
                   </div>
                   <div className="flex items-start">
-                    <span className="bg-yellow-500 text-gray-900 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">3</span>
-                    <span>Toque em <span className="bg-gray-700 px-2 py-1 rounded text-yellow-400">"Adicionar"</span> para confirmar</span>
+                    <span className="bg-white text-gray-900 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">3</span>
+                    <span>Toque em <span className="bg-gray-700 px-2 py-1 rounded text-white">"Adicionar"</span> para confirmar</span>
                   </div>
                 </div>
               </div>
@@ -3892,16 +4049,16 @@ const InstallInstructions = ({ onClose, isVisible }) => {
                 <h4 className="text-white font-semibold">🤖 Android:</h4>
                 <div className="space-y-2 text-sm text-gray-300">
                   <div className="flex items-start">
-                    <span className="bg-yellow-500 text-gray-900 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">1</span>
-                    <span>Toque no menu <span className="bg-gray-700 px-2 py-1 rounded text-yellow-400">⋮</span> no navegador</span>
+                    <span className="bg-white text-gray-900 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">1</span>
+                    <span>Toque no menu <span className="bg-gray-700 px-2 py-1 rounded text-white">⋮</span> no navegador</span>
                   </div>
                   <div className="flex items-start">
-                    <span className="bg-yellow-500 text-gray-900 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">2</span>
-                    <span>Selecione <span className="bg-gray-700 px-2 py-1 rounded text-yellow-400">"Adicionar à tela inicial"</span></span>
+                    <span className="bg-white text-gray-900 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">2</span>
+                    <span>Selecione <span className="bg-gray-700 px-2 py-1 rounded text-white">"Adicionar à tela inicial"</span></span>
                   </div>
                   <div className="flex items-start">
-                    <span className="bg-yellow-500 text-gray-900 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">3</span>
-                    <span>Toque em <span className="bg-gray-700 px-2 py-1 rounded text-yellow-400">"Adicionar"</span> para confirmar</span>
+                    <span className="bg-white text-gray-900 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">3</span>
+                    <span>Toque em <span className="bg-gray-700 px-2 py-1 rounded text-white">"Adicionar"</span> para confirmar</span>
                   </div>
                 </div>
               </div>
@@ -3910,12 +4067,12 @@ const InstallInstructions = ({ onClose, isVisible }) => {
                 <h4 className="text-white font-semibold">💻 Desktop:</h4>
                 <div className="space-y-2 text-sm text-gray-300">
                   <div className="flex items-start">
-                    <span className="bg-yellow-500 text-gray-900 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">1</span>
-                    <span>Procure pelo ícone de instalação <span className="bg-gray-700 px-2 py-1 rounded text-yellow-400">⬇️</span> na barra de endereços</span>
+                    <span className="bg-white text-gray-900 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">1</span>
+                    <span>Procure pelo ícone de instalação <span className="bg-gray-700 px-2 py-1 rounded text-white">⬇️</span> na barra de endereços</span>
                   </div>
                   <div className="flex items-start">
-                    <span className="bg-yellow-500 text-gray-900 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">2</span>
-                    <span>Clique em <span className="bg-gray-700 px-2 py-1 rounded text-yellow-400">"Instalar"</span> quando aparecer</span>
+                    <span className="bg-white text-gray-900 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">2</span>
+                    <span>Clique em <span className="bg-gray-700 px-2 py-1 rounded text-white">"Instalar"</span> quando aparecer</span>
                   </div>
                 </div>
               </div>
@@ -4199,6 +4356,7 @@ export default function App() {
   const [services, setServices] = useState([]);
   const [schedules, setSchedules] = useState([]);
   const [barbers, setBarbers] = useState([]);
+  const [lunchBreaks, setLunchBreaks] = useState([]);
   const [, setIsLoadingServices] = useState(false);
   const [, setIsLoadingSchedules] = useState(false);
   const [, setIsLoadingBarbers] = useState(false);
@@ -4302,6 +4460,30 @@ export default function App() {
       }
     };
 
+    const loadLunchBreaks = async () => {
+      try {
+        const lunchBreaksPath = getCollectionPath(COLLECTIONS.LUNCH_BREAKS);
+        const lunchBreaksRef = collection(db, lunchBreaksPath);
+        const q = query(lunchBreaksRef, orderBy('date', 'desc'));
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+          const lunchBreaksData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          
+          setLunchBreaks(lunchBreaksData);
+          console.log("✅ Bloqueios de almoço carregados:", lunchBreaksData.length);
+        }, (error) => {
+          console.error("❌ Erro ao carregar bloqueios de almoço:", error);
+        });
+        
+        return () => unsubscribe();
+      } catch (error) {
+        console.error("❌ Erro ao carregar bloqueios de almoço:", error);
+      }
+    };
+
     const loadSchedules = async () => {
       try {
         setIsLoadingSchedules(true);
@@ -4362,6 +4544,7 @@ export default function App() {
     loadServices();
     loadSchedules();
     loadBarbers();
+    loadLunchBreaks();
   }, [userId, authError]);
 
   // ========================================
@@ -4969,6 +5152,81 @@ export default function App() {
     }
   };
 
+  // Funções para Gerenciar Horários de Almoço
+  const handleBlockLunch = async (lunchData) => {
+    try {
+      await waitForAuth();
+      
+      const lunchBreaksPath = getCollectionPath(COLLECTIONS.LUNCH_BREAKS);
+      const lunchBreaksRef = collection(db, lunchBreaksPath);
+      
+      const newLunchBreak = {
+        barberId: lunchData.barberId,
+        barberName: lunchData.barberName,
+        date: lunchData.date,
+        startTime: lunchData.startTime,
+        endTime: lunchData.endTime,
+        createdAt: new Date(),
+        active: true
+      };
+      
+      await addDoc(lunchBreaksRef, newLunchBreak);
+      console.log("✅ Horário de almoço bloqueado com sucesso");
+      
+      // Adicionar notificação de sucesso
+      setAdminNotifications(prev => [...prev, {
+        id: generateId(),
+        type: 'success',
+        message: `Horário de almoço bloqueado: ${lunchData.barberName} - ${lunchData.startTime} às ${lunchData.endTime}`,
+        timestamp: new Date(),
+        read: false
+      }]);
+      
+    } catch (error) {
+      console.error("❌ Erro ao bloquear horário de almoço:", error);
+      setAdminNotifications(prev => [...prev, {
+        id: generateId(),
+        type: 'error',
+        message: `Erro ao bloquear horário: ${error.message}`,
+        timestamp: new Date(),
+        read: false
+      }]);
+      throw error;
+    }
+  };
+
+  const handleUnblockLunch = async (lunchBreakId) => {
+    try {
+      await waitForAuth();
+      
+      const lunchBreaksPath = getCollectionPath(COLLECTIONS.LUNCH_BREAKS);
+      const lunchBreakRef = doc(db, lunchBreaksPath, lunchBreakId);
+      
+      await deleteDoc(lunchBreakRef);
+      console.log("✅ Horário de almoço desbloqueado com sucesso");
+      
+      // Adicionar notificação de sucesso
+      setAdminNotifications(prev => [...prev, {
+        id: generateId(),
+        type: 'success',
+        message: 'Horário de almoço desbloqueado com sucesso',
+        timestamp: new Date(),
+        read: false
+      }]);
+      
+    } catch (error) {
+      console.error("❌ Erro ao desbloquear horário de almoço:", error);
+      setAdminNotifications(prev => [...prev, {
+        id: generateId(),
+        type: 'error',
+        message: `Erro ao desbloquear horário: ${error.message}`,
+        timestamp: new Date(),
+        read: false
+      }]);
+      throw error;
+    }
+  };
+
   const handleDeleteBarber = async (barberId, barberName) => {
     try {
       await waitForAuth();
@@ -5294,7 +5552,7 @@ export default function App() {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
           <p className="text-white text-lg">Conectando ao servidor...</p>
         </div>
       </div>
@@ -5349,6 +5607,7 @@ export default function App() {
             services={services}
             schedules={schedules}
             barbers={barbers}
+            lunchBreaks={lunchBreaks}
             onAddService={handleAddService}
             onUpdateService={handleUpdateService}
             onDeleteService={handleDeleteService}
@@ -5358,6 +5617,8 @@ export default function App() {
             onAddBarber={handleAddBarber}
             onUpdateBarber={handleUpdateBarber}
             onDeleteBarber={handleDeleteBarber}
+            onBlockLunch={handleBlockLunch}
+            onUnblockLunch={handleUnblockLunch}
           />;
         default:
           return (
@@ -5378,7 +5639,8 @@ export default function App() {
         return <Home onBookNow={() => setCurrentView('book')} services={services} barbers={barbers} />;
       case 'book':
         return (
-          <BookingFlow 
+          <BookingFlow
+            lunchBreaks={lunchBreaks} 
             bookings={bookings}
             userId={userId}
             onBookingComplete={() => setCurrentView('my_bookings')}
@@ -5411,7 +5673,7 @@ export default function App() {
           <p className="text-gray-300 mb-4">{error}</p>
           <button 
             onClick={() => window.location.reload()}
-            className="bg-yellow-500 text-gray-900 font-bold py-2 px-6 rounded-lg hover:bg-yellow-400"
+            className="bg-white text-gray-900 font-bold py-2 px-6 rounded-lg hover:bg-gray-100"
           >
             Recarregar Página
           </button>
