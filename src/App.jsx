@@ -28,6 +28,8 @@ import {
   Zap,         // NOVO - para promoções
 } from 'lucide-react';
 
+import logoImg from './assets/logo.png';
+
 // Firebase imports
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
@@ -759,9 +761,13 @@ const Header = ({
   <header className="w-full bg-gray-900 p-3 sm:p-4 border-b-2 border-yellow-500">
     <div className="max-w-5xl mx-auto flex items-center justify-between">
       <div className="flex items-center">
-        <Scissors className="text-yellow-500 h-6 w-6 sm:h-8 sm:w-8 mr-2 sm:mr-3" />
+        <img
+          src={logoImg}
+          alt="Logo Bigodes Cortes"
+          className="h-8 w-8 sm:h-10 sm:w-10 mr-2 sm:mr-3 object-contain rounded-full"
+        />
         <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-white tracking-wider">
-          <span className="hidden sm:inline">Barbearia Navalha Dourada</span>
+          <span className="hidden sm:inline">Bigodes Cortes </span>
           <span className="sm:hidden">Barbearia</span>
       </h1>
         <span className={`ml-3 px-2.5 py-1 rounded-full text-xs font-semibold ${isAdmin ? 'bg-red-500 text-white' : 'bg-green-500 text-gray-900'}`}>
@@ -1042,7 +1048,7 @@ const Home = ({ onBookNow, services, barbers }) => {
   return (
   <div className="animate-fade-in space-y-4 sm:space-y-6 p-4 sm:p-6">
     <div className="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-xl text-center">
-      <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2 sm:mb-3">Bem-vindo à Navalha Dourada!</h2>
+      <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2 sm:mb-3">Bem-vindo Barbearia Bigodes cortes!</h2>
       <p className="text-gray-300 mb-4 sm:mb-6 text-sm sm:text-base">Onde tradição e estilo se encontram. Agende seu horário com os melhores.</p>
       <button
         onClick={onBookNow}
@@ -1971,128 +1977,302 @@ const StatCard = ({ title, value, icon, colorClass = 'text-yellow-500' }) => {
 };
 
 // Formulário de Adicionar Corte Avulso (DESABILITADO - não utilizado)
-const AddWalkInForm = ({ services, barbers, userId, onAddBooking }) => {
-  const [serviceId, setServiceId] = useState(SERVICES[0].id);
-  const [barberId, setBarberId] = useState(BARBERS[0].id);
-  const [price, setPrice] = useState(SERVICES[0].price);
+const AddWalkInForm = ({ services = [], barbers = [], userId, onAddBooking }) => {
+  const availableServices = useMemo(() => {
+    if (services && services.length > 0) {
+      return services.map(service => ({
+        id: service.id,
+        name: service.name,
+        duration: service.duration || 30,
+        price: Number(service.price) || 0
+      }));
+    }
+    return SERVICES;
+  }, [services]);
+
+  const availableBarbers = useMemo(() => {
+    const list = barbers && barbers.length > 0 ? barbers : BARBERS;
+    return list.filter(barber => barber?.isActive !== false);
+  }, [barbers]);
+
+  const [selectedServiceId, setSelectedServiceId] = useState(availableServices[0]?.id || 'custom');
+  const [customServiceName, setCustomServiceName] = useState('');
+  const [serviceDuration, setServiceDuration] = useState(availableServices[0]?.duration || 30);
+  const [price, setPrice] = useState(availableServices[0]?.price || 0);
+  const [barberId, setBarberId] = useState(availableBarbers[0]?.id || '');
   const [clientName, setClientName] = useState('Cliente Avulso');
+  const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState(null);
 
-  const handleServiceChange = (e) => {
-    const sId = e.target.value;
-    setServiceId(sId);
-    const service = SERVICES.find(s => s.id === sId);
+  useEffect(() => {
+    if (selectedServiceId === 'custom') {
+      return;
+    }
+
+    const service = availableServices.find(item => item.id === selectedServiceId);
     if (service) {
-      setPrice(service.price);
+      setServiceDuration(service.duration || 30);
+      setPrice(service.price || 0);
+    } else if (availableServices.length > 0) {
+      const first = availableServices[0];
+      setSelectedServiceId(first.id);
+      setServiceDuration(first.duration || 30);
+      setPrice(first.price || 0);
+    }
+  }, [availableServices, selectedServiceId]);
+
+  useEffect(() => {
+    if (!availableBarbers.length) {
+      setBarberId('');
+      return;
+    }
+
+    if (!availableBarbers.some(barber => barber.id === barberId)) {
+      setBarberId(availableBarbers[0].id);
+    }
+  }, [availableBarbers, barberId]);
+
+  const handleServiceChange = (event) => {
+    const value = event.target.value;
+    setSelectedServiceId(value);
+
+    if (value === 'custom') {
+      setCustomServiceName('');
+      setServiceDuration(30);
+      setPrice(0);
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+
+    if (!onAddBooking) {
+      setMessage({ type: 'error', text: 'Não foi possível salvar. Função indisponível.' });
+      return;
+    }
+
+    const hasBarber = Boolean(barberId);
+    const isCustomService = selectedServiceId === 'custom';
+    const trimmedServiceName = customServiceName.trim();
+
+    if (!hasBarber) {
+      setMessage({ type: 'error', text: 'Selecione um barbeiro ativo.' });
+      setTimeout(() => setMessage(null), 4000);
+      return;
+    }
+
+    if (isCustomService && !trimmedServiceName) {
+      setMessage({ type: 'error', text: 'Informe o nome do serviço.' });
+      setTimeout(() => setMessage(null), 4000);
+      return;
+    }
+
     setIsSubmitting(true);
     setMessage(null);
 
-    const service = SERVICES.find(s => s.id === serviceId);
-    const barber = BARBERS.find(b => b.id === barberId);
-    const now = new Date();
+    const serviceInfo = isCustomService
+      ? {
+          id: `walkin-${generateId()}`,
+          name: trimmedServiceName,
+          duration: Number(serviceDuration) || 30,
+          price: Number(price) || 0
+        }
+      : availableServices.find(item => item.id === selectedServiceId) || {
+          id: selectedServiceId,
+          name: 'Serviço Avulso',
+          duration: Number(serviceDuration) || 30,
+          price: Number(price) || 0
+        };
 
-    const newBooking = {
+    const selectedBarber = availableBarbers.find(barber => barber.id === barberId) || {
+      id: barberId || 'unknown',
+      name: 'Barbeiro'
+    };
+
+    const now = new Date();
+    const finalDuration = Number(serviceInfo.duration) || 30;
+    const finalPrice = Number(price) || Number(serviceInfo.price) || 0;
+    const finalClientName = clientName?.trim() ? clientName.trim() : 'Cliente Avulso';
+
+    const trimmedNotes = notes.trim();
+
+    const walkInBooking = {
       id: generateId(),
-      userId: userId,
-      serviceId: service.id,
-      serviceName: service.name,
-      duration: service.duration,
-      barberId: barber.id,
-      barberName: barber.name,
-      date: new Date(now.setHours(0,0,0,0)),
+      userId: userId || 'admin',
+      serviceId: serviceInfo.id,
+      serviceName: serviceInfo.name,
+      duration: finalDuration,
+      barberId: selectedBarber.id,
+      barberName: selectedBarber.name,
+      date: new Date(now.getFullYear(), now.getMonth(), now.getDate()),
       startTime: now,
-      endTime: new Date(now.getTime() + service.duration * 60000),
-      clientName: clientName || 'Cliente Avulso',
-      clientPhone: 'N/A',
+      endTime: new Date(now.getTime() + finalDuration * 60000),
+      clientName: finalClientName,
+      clientPhone: 'walk-in',
+      notes: trimmedNotes ? trimmedNotes : null,
       createdAt: now,
+      updatedAt: now,
       status: 'completed',
-      price: parseFloat(price)
+      price: finalPrice,
+      paymentConfirmed: true,
+      paymentConfirmedAt: now,
+      paymentConfirmedBy: userId || 'admin',
+      addedToDashboard: true,
+      source: 'walk-in'
     };
 
     try {
-      onAddBooking(newBooking);
-      setMessage({ type: 'success', text: 'Corte avulso adicionado!' });
-      // Reset form
-      setServiceId(SERVICES[0].id);
-      setBarberId(BARBERS[0].id);
-      setPrice(SERVICES[0].price);
+      const docId = await onAddBooking(walkInBooking);
+      setMessage({
+        type: 'success',
+        text: `Corte avulso registrado! ${docId ? `ID: ${docId}` : ''}`
+      });
+
+      if (availableServices.length) {
+        const defaultService = availableServices[0];
+        setSelectedServiceId(defaultService.id || 'custom');
+        setServiceDuration(defaultService.duration || 30);
+        setPrice(defaultService.price || 0);
+      } else {
+        setSelectedServiceId('custom');
+        setServiceDuration(30);
+        setPrice(0);
+      }
+
+      if (availableBarbers.length) {
+        setBarberId(availableBarbers[0].id);
+      }
+
+      setCustomServiceName('');
       setClientName('Cliente Avulso');
+      setNotes('');
     } catch (error) {
-      console.error("Erro ao adicionar corte avulso:", error);
-      setMessage({ type: 'error', text: 'Erro ao salvar.' });
+      console.error('Erro ao adicionar corte avulso:', error);
+      setMessage({ type: 'error', text: 'Erro ao salvar corte avulso. Tente novamente.' });
     } finally {
       setIsSubmitting(false);
-      setTimeout(() => setMessage(null), 3000);
+      setTimeout(() => setMessage(null), 4000);
     }
   };
 
+  const isFormValid = Boolean(barberId) && (
+    selectedServiceId !== 'custom' || customServiceName.trim().length > 0
+  );
+
   return (
     <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
-      <h3 className="text-xl font-semibold text-white mb-4">Adicionar Corte Avulso (Walk-in)</h3>
+      <h3 className="text-xl font-semibold text-white mb-4">Registrar Corte Avulso / Trabalho Rápido</h3>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label htmlFor="walkin-service" className="block text-sm font-medium text-gray-300 mb-1">Serviço</label>
+          <label htmlFor="walkin-service" className="block text-sm font-medium text-gray-300 mb-1">Serviço Realizado</label>
           <select 
             id="walkin-service" 
-            value={serviceId} 
+            value={selectedServiceId}
             onChange={handleServiceChange}
             className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
           >
-            {services.length > 0 ? (
-              services.map(s => <option key={s.id} value={s.id}>{s.name} - R$ {s.price.toFixed(2)}</option>)
-            ) : (
-              <option value="">Carregando serviços...</option>
-            )}
+            {availableServices.length > 0 && availableServices.map(service => (
+              <option key={service.id} value={service.id}>
+                {service.name} • R$ {service.price.toFixed(2)}
+              </option>
+            ))}
+            <option value="custom">Outro serviço...</option>
           </select>
         </div>
+
+        {selectedServiceId === 'custom' && (
         <div>
-          <label htmlFor="walkin-barber" className="block text-sm font-medium text-gray-300 mb-1">Barbeiro</label>
+            <label htmlFor="walkin-service-name" className="block text-sm font-medium text-gray-300 mb-1">Nome do Serviço</label>
+            <input
+              id="walkin-service-name"
+              type="text"
+              value={customServiceName}
+              onChange={(event) => setCustomServiceName(event.target.value)}
+              placeholder="Ex.: Corte degrade + barba"
+              className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+            />
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="walkin-price" className="block text-sm font-medium text-gray-300 mb-1">Valor cobrado (R$)</label>
+            <input
+              id="walkin-price"
+              type="number"
+              min="0"
+              step="0.5"
+              value={price}
+              onChange={(event) => setPrice(event.target.value)}
+              className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+            />
+          </div>
+          <div>
+            <label htmlFor="walkin-duration" className="block text-sm font-medium text-gray-300 mb-1">Duração (minutos)</label>
+            <input
+              id="walkin-duration"
+              type="number"
+              min="10"
+              max="240"
+              step="5"
+              value={serviceDuration}
+              onChange={(event) => setServiceDuration(event.target.value)}
+              className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label htmlFor="walkin-barber" className="block text-sm font-medium text-gray-300 mb-1">Barbeiro responsável</label>
           <select 
             id="walkin-barber" 
             value={barberId} 
-            onChange={(e) => setBarberId(e.target.value)}
+            onChange={(event) => setBarberId(event.target.value)}
             className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500"
           >
-            {barbers.length > 0 ? (
-              barbers.filter(b => b.isActive).map(b => <option key={b.id} value={b.name}>{b.name}</option>)
+            {availableBarbers.length > 0 ? (
+              availableBarbers.map(barber => (
+                <option key={barber.id} value={barber.id}>{barber.name}</option>
+              ))
             ) : (
-              <option value="">Carregando barbeiros...</option>
+              <option value="">Cadastre barbeiros ativos em Configurações</option>
             )}
           </select>
         </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label htmlFor="walkin-name" className="block text-sm font-medium text-gray-300 mb-1">Nome do Cliente</label>
+            <label htmlFor="walkin-client" className="block text-sm font-medium text-gray-300 mb-1">Nome do Cliente</label>
           <input 
+              id="walkin-client"
             type="text" 
-            id="walkin-name" 
             value={clientName} 
-            onChange={(e) => setClientName(e.target.value)}
+              onChange={(event) => setClientName(event.target.value)}
             className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500" 
           />
         </div>
         <div>
-          <label htmlFor="walkin-price" className="block text-sm font-medium text-gray-300 mb-1">Preço (R$)</label>
+            <label htmlFor="walkin-notes" className="block text-sm font-medium text-gray-300 mb-1">Notas (opcional)</label>
           <input 
-            type="number" 
-            id="walkin-price" 
-            value={price} 
-            onChange={(e) => setPrice(e.target.value)}
+              id="walkin-notes"
+              type="text"
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              placeholder="Ex.: Pagamento em dinheiro, barba completa..."
             className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-yellow-500 focus:border-yellow-500" 
           />
         </div>
+        </div>
+
         <button 
           type="submit" 
-          disabled={isSubmitting}
-          className="w-full bg-yellow-500 text-gray-900 font-bold py-3 px-6 rounded-lg hover:bg-yellow-400 transition-all disabled:bg-gray-600"
+          disabled={isSubmitting || !isFormValid}
+          className="w-full bg-yellow-500 text-gray-900 font-bold py-3 px-6 rounded-lg hover:bg-yellow-400 transition-all disabled:bg-gray-600 disabled:text-gray-300"
         >
-          {isSubmitting ? 'Salvando...' : 'Adicionar Corte'}
+          {isSubmitting ? 'Registrando corte...' : 'Registrar corte avulso'}
         </button>
+
         {message && (
           <p className={`text-center text-sm ${message.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
             {message.text}
@@ -2277,8 +2457,9 @@ const DashboardView = ({ todayBookings, isLoadingTodayBookings, history, isLoadi
 // --- Componentes de Admin ---
 
 // Dashboard Admin Principal
-const AdminDashboard = ({ bookings }) => {
+const AdminDashboard = ({ bookings, services = [], barbers = [], onAddWalkIn, userId }) => {
   const [timeFilter, setTimeFilter] = useState('week'); // 'day', 'week', 'month'
+  const hasWalkInForm = typeof onAddWalkIn === 'function';
   
   // Limpar dados de agendamentos antes de processar
   const cleanedBookings = useMemo(() => {
@@ -2446,6 +2627,15 @@ const AdminDashboard = ({ bookings }) => {
           </p>
         )}
       </div>
+
+      {hasWalkInForm && (
+        <AddWalkInForm
+          services={services}
+          barbers={barbers}
+          userId={userId}
+          onAddBooking={onAddWalkIn}
+        />
+      )}
     </div>
   );
 };
@@ -4918,18 +5108,22 @@ export default function App() {
       // Aguardar autenticação estar pronta
       await waitForAuth();
       
+      const now = new Date();
+      
       // Converter datas para Timestamp do Firebase
       const bookingData = {
         ...newBooking,
         startTime: newBooking.startTime,
         endTime: newBooking.endTime,
         date: newBooking.date,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        paymentConfirmed: false, // Pagamento não confirmado inicialmente
-        paymentConfirmedAt: null,
-        paymentConfirmedBy: null,
-        addedToDashboard: false // ✅ Não adicionar ao dashboard até que esteja pago E concluído
+        status: newBooking.status || 'confirmed',
+        createdAt: now,
+        updatedAt: now,
+        paymentConfirmed: newBooking.paymentConfirmed ?? false,
+        paymentConfirmedAt: newBooking.paymentConfirmed ? (newBooking.paymentConfirmedAt || now) : null,
+        paymentConfirmedBy: newBooking.paymentConfirmed ? (newBooking.paymentConfirmedBy || userId || null) : null,
+        addedToDashboard: newBooking.addedToDashboard ?? false,
+        source: newBooking.source || 'online'
       };
       
       // Usar caminho correto para coleção
@@ -4938,16 +5132,23 @@ export default function App() {
       console.log("✅ Agendamento adicionado com ID:", docRef.id);
       
       // Adicionar notificação de sucesso
+      const successMessage = bookingData.source === 'walk-in'
+        ? `Corte avulso registrado para ${bookingData.barberName || 'barbeiro'}.`
+        : 'Agendamento realizado com sucesso!';
+      
       setAdminNotifications(prev => [...prev, {
         id: generateId(),
         type: 'success',
-        message: 'Agendamento realizado com sucesso!',
-        timestamp: new Date()
+        message: successMessage,
+        timestamp: now,
+        read: false
       }]);
       
+      return docRef.id;
     } catch (error) {
       console.error("❌ Erro ao adicionar agendamento:", error);
       setError(`Erro ao salvar agendamento: ${error.message}`);
+      throw error;
     }
   };
 
@@ -5125,7 +5326,15 @@ export default function App() {
     if (isAdmin) {
       switch (currentView) {
       case 'admin_dashboard':
-        return <AdminDashboard bookings={bookings} />;
+        return (
+          <AdminDashboard 
+            bookings={bookings} 
+            services={services} 
+            barbers={barbers} 
+            onAddWalkIn={handleAddBooking}
+            userId={userId}
+          />
+        );
       case 'admin_bookings':
         return <AdminBookings bookings={bookings} onUpdateBooking={handleUpdateBooking} onConfirmPayment={handleConfirmPayment} />;
       case 'admin_clients':
@@ -5151,7 +5360,15 @@ export default function App() {
             onDeleteBarber={handleDeleteBarber}
           />;
         default:
-          return <AdminDashboard bookings={bookings} />;
+          return (
+            <AdminDashboard 
+              bookings={bookings} 
+              services={services} 
+              barbers={barbers} 
+              onAddWalkIn={handleAddBooking}
+              userId={userId}
+            />
+          );
       }
     }
 
