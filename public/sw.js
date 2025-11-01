@@ -202,55 +202,140 @@ async function cleanOldCaches() {
   }
 }
 
-// Notificações push (preparação para futuras funcionalidades)
-self.addEventListener('push', (event) => {
-  if (event.data) {
-    const data = event.data.json();
-    const options = {
-      body: data.body,
-      icon: '/icons/icon-192x192.svg',
-      badge: '/icons/icon-72x72.svg',
-      vibrate: [100, 50, 100],
+// ========================================
+// SISTEMA DE NOTIFICAÇÕES PWA PROFISSIONAL
+// ========================================
+
+// Manipulador de mensagens do cliente para criar notificações
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SHOW_NOTIFICATION') {
+    const { title, options } = event.data;
+    
+    // Configurações padrão para notificações
+    const notificationOptions = {
+      body: options.body || '',
+      icon: options.icon || '/icons/icon-192x192.svg',
+      badge: options.badge || '/icons/icon-72x72.svg',
+      vibrate: options.vibrate || [200, 100, 200],
+      tag: options.tag || 'barbearia-notification',
+      requireInteraction: options.requireInteraction || false,
+      silent: options.silent || false,
       data: {
+        url: options.url || '/',
         dateOfArrival: Date.now(),
-        primaryKey: data.primaryKey
+        ...options.data
       },
-      actions: [
+      actions: options.actions || [
         {
-          action: 'explore',
-          title: 'Ver Agendamento',
+          action: 'open',
+          title: 'Abrir',
           icon: '/icons/icon-96x96.svg'
         },
         {
           action: 'close',
           title: 'Fechar',
-          icon: '/icons/icon-96x96.svg'
+          icon: '/icons/icon-72x72.svg'
         }
       ]
     };
     
     event.waitUntil(
-      self.registration.showNotification(data.title, options)
+      self.registration.showNotification(title, notificationOptions)
+        .then(() => {
+          console.log('✅ Notificação enviada:', title);
+        })
+        .catch((error) => {
+          console.error('❌ Erro ao enviar notificação:', error);
+        })
     );
+  }
+  
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+  
+  if (event.data && event.data.type === 'CLEAN_CACHE') {
+    cleanOldCaches();
+  }
+});
+
+// Notificações push (para futuras funcionalidades de push notifications)
+self.addEventListener('push', (event) => {
+  if (event.data) {
+    try {
+      const data = event.data.json();
+      const options = {
+        body: data.body || 'Você tem uma nova atualização!',
+        icon: data.icon || '/icons/icon-192x192.svg',
+        badge: data.badge || '/icons/icon-72x72.svg',
+        vibrate: data.vibrate || [200, 100, 200],
+        tag: data.tag || 'push-notification',
+        requireInteraction: data.requireInteraction || false,
+        data: {
+          url: data.url || '/',
+          dateOfArrival: Date.now(),
+          primaryKey: data.primaryKey
+        },
+        actions: [
+          {
+            action: 'open',
+            title: 'Ver Detalhes',
+            icon: '/icons/icon-96x96.svg'
+          },
+          {
+            action: 'close',
+            title: 'Fechar',
+            icon: '/icons/icon-72x72.svg'
+          }
+        ]
+      };
+      
+      event.waitUntil(
+        self.registration.showNotification(data.title || 'Barbearia Oficial', options)
+      );
+    } catch (error) {
+      console.error('❌ Erro ao processar push notification:', error);
+    }
   }
 });
 
 // Clique em notificação
 self.addEventListener('notificationclick', (event) => {
+  console.log('🔔 Clique na notificação:', event.action);
+  
   event.notification.close();
   
-  if (event.action === 'explore') {
-    event.waitUntil(
-      clients.openWindow('/?action=bookings')
-    );
-  } else if (event.action === 'close') {
+  const urlToOpen = event.notification.data?.url || '/';
+  
+  if (event.action === 'close') {
     // Apenas fecha a notificação
-  } else {
-    // Clique na notificação (não em uma ação)
-    event.waitUntil(
-      clients.openWindow('/')
-    );
+    return;
   }
+  
+  // Abrir ou focar na janela do app
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true })
+      .then((clientList) => {
+        // Procurar por uma janela já aberta
+        for (const client of clientList) {
+          if (client.url === urlToOpen && 'focus' in client) {
+            return client.focus();
+          }
+        }
+        // Se não encontrou, abrir nova janela
+        if (clients.openWindow) {
+          return clients.openWindow(urlToOpen);
+        }
+      })
+      .catch((error) => {
+        console.error('❌ Erro ao abrir janela:', error);
+      })
+  );
+});
+
+// Fechar notificação
+self.addEventListener('notificationclose', (event) => {
+  console.log('🔕 Notificação fechada:', event.notification.tag);
 });
 
 console.log('🔧 Service Worker: Carregado e pronto!');

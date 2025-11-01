@@ -106,6 +106,122 @@ const waitForAuth = () => {
   });
 };
 
+// ========================================
+// SISTEMA DE NOTIFICAÇÕES PWA PROFISSIONAL
+// ========================================
+
+/**
+ * Função auxiliar para enviar notificações compatível com PWA
+ * Detecta automaticamente o ambiente e usa o método correto:
+ * - Service Worker (Android/iOS instalado) → registration.showNotification()
+ * - Desktop/Navegador → new Notification() como fallback
+ * 
+ * @param {string} title - Título da notificação
+ * @param {Object} options - Opções da notificação
+ * @returns {Promise<void>}
+ */
+const sendNotification = async (title, options = {}) => {
+  try {
+    // Verificar se notificações são suportadas
+    if (!('Notification' in window)) {
+      console.warn('⚠️ Notificações não suportadas neste navegador');
+      return;
+    }
+    
+    // Solicitar permissão se ainda não foi concedida
+    if (Notification.permission === 'default') {
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        console.warn('⚠️ Permissão de notificação negada');
+        return;
+      }
+    }
+    
+    // Se permissão foi negada, não fazer nada
+    if (Notification.permission !== 'granted') {
+      console.warn('⚠️ Permissão de notificação não concedida');
+      return;
+    }
+    
+    // Configurações padrão
+    const defaultOptions = {
+      body: '',
+      icon: '/icons/icon-192x192.svg',
+      badge: '/icons/icon-72x72.svg',
+      vibrate: [200, 100, 200],
+      tag: 'barbearia-notification',
+      requireInteraction: false,
+      silent: false,
+      ...options
+    };
+    
+    // Tentar usar Service Worker (PWA instalado - Android/iOS)
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      try {
+        const registration = await navigator.serviceWorker.ready;
+        
+        // Enviar mensagem para o Service Worker criar a notificação
+        if (registration.active) {
+          registration.active.postMessage({
+            type: 'SHOW_NOTIFICATION',
+            title,
+            options: defaultOptions
+          });
+          
+          console.log('✅ Notificação enviada via Service Worker:', title);
+          return;
+        }
+      } catch (swError) {
+        console.warn('⚠️ Service Worker não disponível, usando fallback:', swError);
+      }
+    }
+    
+    // Fallback: usar Notification API direta (Desktop/Navegador)
+    try {
+      const notification = new Notification(title, defaultOptions);
+      
+      // Fechar automaticamente após 5 segundos
+      setTimeout(() => {
+        notification.close();
+      }, 5000);
+      
+      console.log('✅ Notificação enviada via Notification API:', title);
+    } catch (notifError) {
+      console.error('❌ Erro ao criar notificação:', notifError);
+    }
+    
+  } catch (error) {
+    // NUNCA quebrar o app por causa de notificação
+    console.error('❌ Erro no sistema de notificações:', error);
+  }
+};
+
+/**
+ * Solicitar permissão de notificação de forma amigável
+ * @returns {Promise<boolean>} - true se permissão concedida
+ */
+const requestNotificationPermission = async () => {
+  try {
+    if (!('Notification' in window)) {
+      return false;
+    }
+    
+    if (Notification.permission === 'granted') {
+      return true;
+    }
+    
+    if (Notification.permission === 'denied') {
+      return false;
+    }
+    
+    const permission = await Notification.requestPermission();
+    return permission === 'granted';
+  } catch (error) {
+    console.error('❌ Erro ao solicitar permissão:', error);
+    return false;
+  }
+};
+
 // Função para garantir que o documento existe antes de atualizar
 const ensureDocumentExists = async (collectionName, documentId, defaultData) => {
   try {
@@ -3582,6 +3698,160 @@ const InstallInstructions = ({ onClose, isVisible }) => {
   );
 };
 
+// ========================================
+// COMPONENTES PWA - INSTALAÇÃO
+// ========================================
+
+// Banner de Instalação para Android
+const InstallBannerAndroid = ({ onInstall, onClose }) => {
+  const [isVisible, setIsVisible] = useState(true);
+  
+  if (!isVisible) return null;
+  
+  const handleClose = () => {
+    setIsVisible(false);
+    if (onClose) onClose();
+  };
+  
+  const handleInstall = () => {
+    setIsVisible(false);
+    if (onInstall) onInstall();
+  };
+  
+  return (
+    <div className="fixed top-0 left-0 right-0 z-50 animate-slide-down">
+      <div className="bg-gradient-to-r from-teal-600 to-teal-700 shadow-lg">
+        <div className="max-w-7xl mx-auto px-4 py-3 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between flex-wrap">
+            <div className="flex items-center flex-1">
+              <span className="flex p-2 rounded-lg bg-teal-800">
+                <Scissors className="h-6 w-6 text-white" />
+              </span>
+              <div className="ml-3 flex-1">
+                <p className="text-sm font-medium text-white">
+                  Instale nosso app!
+                </p>
+                <p className="text-xs text-teal-100 hidden sm:block">
+                  Acesso rápido, notificações e funciona offline
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 mt-2 sm:mt-0">
+              <button
+                onClick={handleInstall}
+                className="bg-white text-teal-700 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-teal-50 transition-colors shadow-md"
+              >
+                Instalar Agora
+              </button>
+              <button
+                onClick={handleClose}
+                className="text-white hover:text-teal-100 p-2 transition-colors"
+                aria-label="Fechar"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Modal de Instruções para iOS
+const InstallModalIOS = ({ onClose }) => {
+  const [showModal, setShowModal] = useState(true);
+  
+  const handleClose = () => {
+    setShowModal(false);
+    if (onClose) onClose();
+  };
+  
+  const handleDontShowAgain = () => {
+    localStorage.setItem('ios-install-dismissed', 'true');
+    handleClose();
+  };
+  
+  if (!showModal) return null;
+  
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 animate-fade-in">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full animate-scale-in">
+        <div className="p-6">
+          {/* Header */}
+          <div className="flex items-center justify-center mb-4">
+            <div className="bg-teal-100 p-3 rounded-full">
+              <Scissors className="h-8 w-8 text-teal-600" />
+            </div>
+          </div>
+          
+          <h3 className="text-2xl font-bold text-gray-900 text-center mb-2">
+            Instale Nosso App
+          </h3>
+          
+          <p className="text-gray-600 text-center mb-6">
+            Para uma melhor experiência, adicione à sua tela inicial
+          </p>
+          
+          {/* Instruções */}
+          <div className="space-y-4 mb-6">
+            <div className="flex items-start gap-3">
+              <div className="bg-teal-600 text-white rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 text-sm font-bold">
+                1
+              </div>
+              <div className="flex-1">
+                <p className="text-gray-700">
+                  Toque no botão <span className="font-semibold">"Compartilhar"</span> 
+                  <span className="inline-block ml-1 text-blue-600">⬆️</span> na barra inferior
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex items-start gap-3">
+              <div className="bg-teal-600 text-white rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 text-sm font-bold">
+                2
+              </div>
+              <div className="flex-1">
+                <p className="text-gray-700">
+                  Role para baixo e selecione{' '}
+                  <span className="font-semibold">"Adicionar à Tela Inicial"</span>
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex items-start gap-3">
+              <div className="bg-teal-600 text-white rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 text-sm font-bold">
+                3
+              </div>
+              <div className="flex-1">
+                <p className="text-gray-700">
+                  Toque em <span className="font-semibold">"Adicionar"</span> para instalar
+                </p>
+              </div>
+            </div>
+          </div>
+          
+          {/* Botões */}
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={handleClose}
+              className="w-full bg-teal-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-teal-700 transition-colors"
+            >
+              Entendi
+            </button>
+            <button
+              onClick={handleDontShowAgain}
+              className="w-full text-gray-600 px-6 py-2 rounded-lg text-sm hover:bg-gray-100 transition-colors"
+            >
+              Não mostrar novamente
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // --- Componente Principal (App) ---
 export default function App() {
   const [currentView, setCurrentView] = useState('home');
@@ -3592,11 +3862,19 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState(null);
 
-  // Solicitar permissão para notificações
+  // Solicitar permissão para notificações de forma profissional
   useEffect(() => {
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
+    // Aguardar 3 segundos após o carregamento para solicitar permissão
+    const timer = setTimeout(async () => {
+      const granted = await requestNotificationPermission();
+      if (granted) {
+        console.log('✅ Permissão de notificação concedida');
+      } else {
+        console.log('⚠️ Permissão de notificação não concedida');
+      }
+    }, 3000);
+    
+    return () => clearTimeout(timer);
   }, []);
 
   // Firebase Authentication - Garantir login anônimo antes de qualquer acesso ao Firestore
@@ -3838,7 +4116,14 @@ export default function App() {
     loadBarbers();
   }, [userId, authError]);
 
-  // PWA Installation Management
+  // ========================================
+  // PWA INSTALLATION MANAGEMENT - PROFISSIONAL
+  // ========================================
+  
+  // Estados adicionais para PWA
+  const [showAndroidBanner, setShowAndroidBanner] = useState(false);
+  const [showIOSModal, setShowIOSModal] = useState(false);
+  
   useEffect(() => {
     // Verificar se já está instalado
     const checkIfInstalled = () => {
@@ -3850,39 +4135,77 @@ export default function App() {
       return false;
     };
 
-    // Verificar se é a primeira visita
-    const isFirstVisit = !localStorage.getItem('pwa-install-shown');
+    // Detectar plataforma
+    const isIOS = () => {
+      const ua = window.navigator.userAgent;
+      const isIPad = /iPad/.test(ua);
+      const isIPhone = /iPhone/.test(ua);
+      return isIPad || isIPhone;
+    };
+
+    const isAndroid = () => {
+      const ua = window.navigator.userAgent;
+      return /Android/.test(ua);
+    };
+
+    // Verificar se o usuário já dispensou
+    const androidDismissed = localStorage.getItem('android-banner-dismissed');
+    const iosDismissed = localStorage.getItem('ios-install-dismissed');
     
-    if (!checkIfInstalled() && isFirstVisit) {
-      // Mostrar instruções de instalação após 3 segundos
-      setTimeout(() => {
-        setShowInstallInstructions(true);
-        localStorage.setItem('pwa-install-shown', 'true');
-      }, 3000);
+    // Se já está instalado, não mostrar nada
+    if (checkIfInstalled()) {
+      console.log('✅ PWA já instalado');
+      return;
     }
 
-    // Listener para o evento beforeinstallprompt
+    // ANDROID: Listener para o evento beforeinstallprompt
     const handleBeforeInstallPrompt = (e) => {
+      console.log('📱 Evento beforeinstallprompt capturado (Android)');
       e.preventDefault();
       setDeferredPrompt(e);
-      setShowInstallPrompt(true);
+      
+      // Mostrar banner apenas se não foi dispensado nos últimos 7 dias
+      if (!androidDismissed || Date.now() - parseInt(androidDismissed) > 7 * 24 * 60 * 60 * 1000) {
+        setShowAndroidBanner(true);
+      }
     };
 
     // Listener para o evento appinstalled
     const handleAppInstalled = () => {
       setIsInstalled(true);
+      setShowAndroidBanner(false);
+      setShowIOSModal(false);
       setShowInstallPrompt(false);
       setDeferredPrompt(null);
       console.log('✅ PWA instalado com sucesso!');
+      
+      // Limpar flags de dismissal
+      localStorage.removeItem('android-banner-dismissed');
+      localStorage.removeItem('ios-install-dismissed');
     };
 
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    window.addEventListener('appinstalled', handleAppInstalled);
+    // IOS: Mostrar modal de instruções
+    if (isIOS() && !iosDismissed) {
+      console.log('📱 Dispositivo iOS detectado');
+      // Mostrar após 5 segundos de navegação
+      const timer = setTimeout(() => {
+        setShowIOSModal(true);
+      }, 5000);
+      
+      return () => clearTimeout(timer);
+    }
 
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-      window.removeEventListener('appinstalled', handleAppInstalled);
-    };
+    // ANDROID: Adicionar listeners
+    if (isAndroid()) {
+      console.log('📱 Dispositivo Android detectado');
+      window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.addEventListener('appinstalled', handleAppInstalled);
+
+      return () => {
+        window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+        window.removeEventListener('appinstalled', handleAppInstalled);
+      };
+    }
   }, []);
 
   // Sistema de notificações em tempo real
@@ -3925,13 +4248,13 @@ export default function App() {
               setNotifications(prev => [notification, ...prev]);
               setUnreadNotifications(prev => prev + 1);
               
-              // Som de notificação (se suportado)
-              if ('Notification' in window && Notification.permission === 'granted') {
-                new Notification('Novo Agendamento', {
-                  body: `${newBooking.clientName} agendou ${newBooking.serviceName}`,
-                  icon: '/vite.svg'
-                });
-              }
+              // Enviar notificação usando sistema PWA profissional
+              sendNotification('Novo Agendamento', {
+                body: `${newBooking.clientName} agendou ${newBooking.serviceName}`,
+                icon: '/icons/icon-192x192.svg',
+                tag: 'new-booking',
+                requireInteraction: true
+              });
             }
           });
     }, (error) => {
@@ -4342,22 +4665,51 @@ export default function App() {
     }
   };
 
-  // Funções PWA
-  const handleInstallPWA = async () => {
+  // ========================================
+  // FUNÇÕES PWA - INSTALAÇÃO
+  // ========================================
+  
+  // Handler para instalação Android
+  const handleInstallAndroid = async () => {
     if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      
-      if (outcome === 'accepted') {
-        console.log('✅ Usuário aceitou a instalação do PWA');
-      } else {
-        console.log('❌ Usuário rejeitou a instalação do PWA');
+      try {
+        // Mostrar o prompt nativo do navegador
+        deferredPrompt.prompt();
+        
+        // Aguardar a escolha do usuário
+        const { outcome } = await deferredPrompt.userChoice;
+        
+        if (outcome === 'accepted') {
+          console.log('✅ Usuário aceitou a instalação do PWA');
+          setShowAndroidBanner(false);
+        } else {
+          console.log('❌ Usuário rejeitou a instalação do PWA');
+          // Salvar que o usuário dispensou
+          localStorage.setItem('android-banner-dismissed', Date.now().toString());
+          setShowAndroidBanner(false);
+        }
+        
+        setDeferredPrompt(null);
+      } catch (error) {
+        console.error('❌ Erro ao instalar PWA:', error);
       }
-      
-      setDeferredPrompt(null);
-      setShowInstallPrompt(false);
     }
   };
+
+  // Handler para fechar banner Android
+  const handleCloseAndroidBanner = () => {
+    setShowAndroidBanner(false);
+    // Salvar que o usuário dispensou por 7 dias
+    localStorage.setItem('android-banner-dismissed', Date.now().toString());
+  };
+
+  // Handler para fechar modal iOS
+  const handleCloseIOSModal = () => {
+    setShowIOSModal(false);
+  };
+
+  // Funções legadas (manter compatibilidade)
+  const handleInstallPWA = handleInstallAndroid;
 
   const handleShowInstallInstructions = () => {
     setShowInstallInstructions(true);
@@ -4717,17 +5069,20 @@ export default function App() {
         App de Barbearia &copy; {new Date().getFullYear()}
       </footer>
 
-      {/* PWA Components */}
-      <InstallPrompt 
-        onInstall={handleInstallPWA}
-        onClose={handleCloseInstallPrompt}
-        isVisible={showInstallPrompt}
-      />
+      {/* PWA Components - Android Banner */}
+      {showAndroidBanner && (
+        <InstallBannerAndroid 
+          onInstall={handleInstallAndroid}
+          onClose={handleCloseAndroidBanner}
+        />
+      )}
       
-      <InstallInstructions 
-        onClose={handleCloseInstallInstructions}
-        isVisible={showInstallInstructions}
-      />
+      {/* PWA Components - iOS Modal */}
+      {showIOSModal && (
+        <InstallModalIOS 
+          onClose={handleCloseIOSModal}
+        />
+      )}
     </div>
   );
 }
