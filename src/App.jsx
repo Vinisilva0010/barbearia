@@ -1337,22 +1337,26 @@ const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking, servic
   const stepNames = ["Serviço", "Barbeiro", "Data", "Horário", "Confirmação"];
   
   // Datas disponíveis (próximos 7 dias, filtrando dias fechados)
-  const availableDates = useMemo(() => {
-    const dates = [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Zera a hora para comparações
+const availableDates = useMemo(() => {
+  const dates = [];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
-    for (let i = 0; i < 7; i++) {
-      const date = new Date(today);
-      date.setDate(date.getDate() + i);
-      const dayOfWeek = date.getDay();
-      
-      if (WORKING_HOURS.weekdays.includes(dayOfWeek)) {
-        dates.push(date);
-      }
+  const year = today.getFullYear();
+  const month = today.getMonth();
+  const lastDay = new Date(year, month + 1, 0).getDate();
+
+  for (let day = today.getDate(); day <= lastDay; day++) {
+    const date = new Date(year, month, day);
+    const dayOfWeek = date.getDay();
+    
+    if (WORKING_HOURS.weekdays.includes(dayOfWeek)) {
+      dates.push(date);
     }
-    return dates;
-  }, []);
+  }
+  return dates;
+}, []);
+
   
   // Efeito para carregar horários quando a data, serviço e barbeiro mudam
   useEffect(() => {
@@ -1613,30 +1617,36 @@ const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking, servic
 
       // PASSO 3: ESCOLHER DATA (ERA 2)
       case 3:
-        return (
-          <div className="animate-fade-in">
-            <h3 className="text-xl font-semibold text-white mb-4 text-center">3. Escolha a Data</h3>
-            <p className="text-center text-gray-400 mb-1 text-sm">Serviço: {selectedService?.name}</p>
-            <p className="text-center text-gray-400 mb-4 text-sm">Barbeiro: {selectedBarber?.name}</p>
-            <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
-              {availableDates.map(date => (
-                <button
-                  key={date.toISOString()}
-                  onClick={() => handleSelectDate(date)}
-                  className={`p-3 rounded-lg text-center transition-all ${
-                    selectedDate?.toISOString() === date.toISOString()
-                      ? 'bg-white text-gray-900 font-bold'
-                      : 'bg-gray-700 text-white hover:bg-gray-600'
-                  }`}
-                >
-                  <p className="text-xs font-medium uppercase">{date.toLocaleDateString('pt-BR', { weekday: 'short' })}</p>
-                  <p className="text-2xl font-bold">{date.getDate()}</p>
-                  <p className="text-xs font-medium uppercase">{date.toLocaleDateString('pt-BR', { month: 'short' })}</p>
-                </button>
-              ))}
-            </div>
-          </div>
-        );
+       return (
+  <div className="animate-fade-in">
+    <h3 className="text-xl font-semibold text-white mb-4 text-center">3. Escolha a Data</h3>
+    <p className="text-center text-gray-400 mb-1 text-sm">Serviço: {selectedService?.name}</p>
+    <p className="text-center text-gray-400 mb-4 text-sm">Barbeiro: {selectedBarber?.name}</p>
+    
+    <h4 className="text-lg font-semibold text-white text-center mb-3 capitalize">
+      {availableDates[0]?.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+    </h4>
+    
+    <div className="grid grid-cols-4 md:grid-cols-7 gap-3 max-h-96 overflow-y-auto p-2">
+      {availableDates.map(date => (
+        <button
+          key={date.toISOString()}
+          onClick={() => handleSelectDate(date)}
+          className={`p-3 rounded-lg text-center transition-all ${
+            selectedDate?.toISOString() === date.toISOString()
+              ? 'bg-white text-gray-900 font-bold'
+              : 'bg-gray-700 text-white hover:bg-gray-600'
+          }`}
+        >
+          <p className="text-xs font-medium uppercase">{date.toLocaleDateString('pt-BR', { weekday: 'short' })}</p>
+          <p className="text-2xl font-bold">{date.getDate()}</p>
+          <p className="text-xs">{date.toLocaleDateString('pt-BR', { month: 'short' })}</p>
+        </button>
+      ))}
+    </div>
+  </div>
+);
+
 
       // PASSO 4: ESCOLHER HORÁRIO (ERA 3)
       case 4:
