@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   CheckCircle, 
   Calendar, 
@@ -743,7 +743,19 @@ const DeleteDataModal = ({ isOpen, onClose, onConfirm, isLoading, progressMessag
 };
 
 // Componente de Cabeçalho
-const Header = ({ isAdmin, onLogout, notifications, unreadNotifications, showNotifications, setShowNotifications, markNotificationAsRead, removeNotification, clearAllNotifications, onShowInstallInstructions, isInstalled }) => (
+const Header = ({
+  isAdmin,
+  onLogout,
+  notifications,
+  unreadNotifications,
+  showNotifications,
+  setShowNotifications,
+  markNotificationAsRead,
+  removeNotification,
+  clearAllNotifications,
+  onShowInstallInstructions,
+  isInstalled
+}) => (
   <header className="w-full bg-gray-900 p-3 sm:p-4 border-b-2 border-yellow-500">
     <div className="max-w-5xl mx-auto flex items-center justify-between">
       <div className="flex items-center">
@@ -752,10 +764,12 @@ const Header = ({ isAdmin, onLogout, notifications, unreadNotifications, showNot
           <span className="hidden sm:inline">Barbearia Navalha Dourada</span>
           <span className="sm:hidden">Barbearia</span>
       </h1>
+        <span className={`ml-3 px-2.5 py-1 rounded-full text-xs font-semibold ${isAdmin ? 'bg-red-500 text-white' : 'bg-green-500 text-gray-900'}`}>
+          {isAdmin ? 'Área do Barbeiro' : 'Área do Cliente'}
+        </span>
       </div>
-      
+
       <div className="flex items-center space-x-3">
-        {/* Botão de Instalação PWA */}
         {!isInstalled && onShowInstallInstructions && (
           <button
             onClick={onShowInstallInstructions}
@@ -766,8 +780,7 @@ const Header = ({ isAdmin, onLogout, notifications, unreadNotifications, showNot
             <span>Instalar</span>
           </button>
         )}
-        
-        {/* Botão de notificações */}
+
         <div className="relative">
           <button
             onClick={() => setShowNotifications(!showNotifications)}
@@ -780,8 +793,7 @@ const Header = ({ isAdmin, onLogout, notifications, unreadNotifications, showNot
               </span>
             )}
           </button>
-          
-          {/* Dropdown de notificações */}
+
           {showNotifications && (
             <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
               <div className="p-4 border-b border-gray-200">
@@ -797,64 +809,102 @@ const Header = ({ isAdmin, onLogout, notifications, unreadNotifications, showNot
                   )}
                 </div>
               </div>
-              
+
               <div className="max-h-96 overflow-y-auto">
                 {notifications.length === 0 ? (
                   <div className="p-4 text-center text-gray-500">
                     Nenhuma notificação
                   </div>
                 ) : (
-                  notifications.map((notification) => (
-                    <div
-                      key={notification.id}
-                      className={`p-4 border-b border-gray-100 hover:bg-gray-50 ${!notification.read ? 'bg-blue-50' : ''}`}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-gray-900">
-                            {notification.message}
-                          </p>
-                          
-                          {notification.details && (
-                            <div className="mt-2 text-xs text-gray-600">
-                              <p><strong>Serviço:</strong> {notification.details.service}</p>
-                              <p><strong>Barbeiro:</strong> {notification.details.barber}</p>
-                              <p><strong>Data:</strong> {notification.details.date.toLocaleDateString('pt-BR')}</p>
-                              <p><strong>Horário:</strong> {notification.details.time.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
-                              <p><strong>Valor:</strong> R$ {notification.details.price.toFixed(2)}</p>
-                            </div>
-                          )}
-                          
-                          <p className="text-xs text-gray-400 mt-1">
-                            {notification.timestamp.toLocaleString('pt-BR')}
-                          </p>
-                        </div>
-                        
-                        <div className="flex space-x-1 ml-2">
-                          {!notification.read && (
+                  notifications.map((notification) => {
+                    const hasDetails = isAdmin && notification.details;
+                    const detailDate = hasDetails && notification.details?.date
+                      ? (notification.details.date instanceof Date
+                          ? notification.details.date
+                          : new Date(notification.details.date))
+                      : null;
+                    const detailTime = hasDetails && notification.details?.time
+                      ? (notification.details.time instanceof Date
+                          ? notification.details.time
+                          : new Date(notification.details.time))
+                      : null;
+                    const timestamp = notification.timestamp?.toDate
+                      ? notification.timestamp.toDate()
+                      : notification.timestamp instanceof Date
+                        ? notification.timestamp
+                        : notification.timestamp
+                          ? new Date(notification.timestamp)
+                          : null;
+
+                    return (
+                      <div
+                        key={notification.id}
+                        className={`p-4 border-b border-gray-100 hover:bg-gray-50 ${!notification.read ? 'bg-blue-50' : ''}`}
+                      >
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-gray-900">
+                              {notification.title || notification.message}
+                            </p>
+                            {notification.title && notification.message && notification.title !== notification.message && (
+                              <p className="text-xs text-gray-600 mt-1">
+                                {notification.message}
+                              </p>
+                            )}
+
+                            {hasDetails && (
+                              <div className="mt-2 text-xs text-gray-600 space-y-1">
+                                {notification.details?.service && (
+                                  <p><strong>Serviço:</strong> {notification.details.service}</p>
+                                )}
+                                {notification.details?.barber && (
+                                  <p><strong>Barbeiro:</strong> {notification.details.barber}</p>
+                                )}
+                                {detailDate && (
+                                  <p><strong>Data:</strong> {detailDate.toLocaleDateString('pt-BR')}</p>
+                                )}
+                                {detailTime && (
+                                  <p><strong>Horário:</strong> {detailTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
+                                )}
+                                {typeof notification.details?.price === 'number' && (
+                                  <p><strong>Valor:</strong> R$ {notification.details.price.toFixed(2)}</p>
+                                )}
+                              </div>
+                            )}
+
+                            {timestamp && (
+                              <p className="text-xs text-gray-400 mt-1">
+                                {timestamp.toLocaleString('pt-BR')}
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="flex space-x-1 ml-2">
+                            {!notification.read && (
+                              <button
+                                onClick={() => markNotificationAsRead(notification.id)}
+                                className="text-xs text-blue-600 hover:text-blue-800"
+                              >
+                                Marcar como lida
+                              </button>
+                            )}
                             <button
-                              onClick={() => markNotificationAsRead(notification.id)}
-                              className="text-xs text-blue-600 hover:text-blue-800"
+                              onClick={() => removeNotification(notification.id)}
+                              className="text-xs text-gray-400 hover:text-gray-600"
                             >
-                              Marcar como lida
+                              <X className="h-4 w-4" />
                             </button>
-                          )}
-                          <button
-                            onClick={() => removeNotification(notification.id)}
-                            className="text-xs text-red-600 hover:text-red-800"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>
           )}
         </div>
-        
+
         {isAdmin && (
           <button
             onClick={onLogout}
@@ -887,8 +937,10 @@ const NotificationsPanel = ({ notifications, onClose }) => (
             <div key={index} className="flex items-start">
               <Clock className="h-4 w-4 text-yellow-500 mt-1 mr-2 flex-shrink-0" />
               <div>
-                <p className="text-sm text-white">{notif.title}</p>
+                <p className="text-sm text-white">{notif.title || notif.message}</p>
+                {notif.title && notif.message && notif.title !== notif.message && (
                 <p className="text-xs text-gray-300">{notif.message}</p>
+                )}
               </div>
             </div>
           ))}
@@ -937,23 +989,25 @@ const Navigation = ({ currentView, setCurrentView, notifications, showNotificati
           </button>
         ))}
         
-        {/* Botão de Notificações */}
+        {/* Botão de Notificações (apenas para clientes) */}
+        {!isAdmin && (
         <button
           onClick={() => setShowNotifications(prev => !prev)}
-          className="relative flex flex-col items-center px-2 sm:px-3 md:px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white"
+            className="relative flex flex-col items-center px-2 sm:px-3 md:px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white"
         >
           {notifications.length > 0 && (
-            <span className="absolute top-1 right-2 sm:right-3 flex h-3 w-3 sm:h-4 sm:w-4">
+              <span className="absolute top-1 right-2 sm:right-3 flex h-3 w-3 sm:h-4 sm:w-4">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 sm:h-4 sm:w-4 bg-red-500 items-center justify-center text-xs font-bold text-white">
+                <span className="relative inline-flex rounded-full h-3 w-3 sm:h-4 sm:w-4 bg-red-500 items-center justify-center text-xs font-bold text-white">
                 {notifications.length}
               </span>
             </span>
           )}
-          <Bell className="h-4 w-4 sm:h-5 sm:w-5 mb-1" />
-          <span className="text-xs font-medium hidden sm:block">Lembretes</span>
-          <span className="text-xs font-medium sm:hidden">Alertas</span>
+            <Bell className="h-4 w-4 sm:h-5 sm:w-5 mb-1" />
+            <span className="text-xs font-medium hidden sm:block">Lembretes</span>
+            <span className="text-xs font-medium sm:hidden">Alertas</span>
         </button>
+        )}
         
         {/* Botão de Admin (apenas para clientes) */}
         {!isAdmin && (
@@ -967,8 +1021,8 @@ const Navigation = ({ currentView, setCurrentView, notifications, showNotificati
           </button>
         )}
         
-        {/* Painel de Notificações Dropdown */}
-        {showNotifications && (
+        {/* Painel de Notificações Dropdown (apenas para clientes) */}
+        {!isAdmin && showNotifications && (
           <NotificationsPanel 
             notifications={notifications} 
             onClose={() => setShowNotifications(false)} 
@@ -1074,7 +1128,7 @@ const ServicesView = () => (
     </div>
   </div>
 );
-
+    
 // Componente de Contato
 const ContactView = () => (
   <div className="animate-fade-in space-y-6">
@@ -1129,7 +1183,7 @@ const ContactView = () => (
               Enviar Mensagem
             </button>
           </form>
-        </div>
+          </div>
       </div>
     </div>
   </div>
@@ -1265,7 +1319,7 @@ const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking, servic
   const safeServices = services || [];
   const safeBarbers = barbers || [];
   // safeBookings definido mas usado em outros componentes via props
-
+  
   // Nomes dos Passos
   const stepNames = ["Serviço", "Barbeiro", "Data", "Horário", "Confirmação"];
   
@@ -1374,21 +1428,21 @@ const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking, servic
 
       if (!userId) {
         setError('Usuário não autenticado. Por favor, recarregue a página.');
-        return;
-      }
-      
-      setIsSubmitting(true);
+      return;
+    }
+    
+    setIsSubmitting(true);
       setError(null);
-      setErrorMessage(null);
+    setErrorMessage(null);
       setIsLoading(true);
-      
-      const startTime = selectedTime;
+    
+    const startTime = selectedTime;
       const serviceDuration = selectedService?.duration || 30;
       const endTime = new Date(startTime.getTime() + serviceDuration * 60000);
-      
-      const newBooking = {
+    
+    const newBooking = {
         id: generateId(),
-        userId: userId,
+      userId: userId,
         serviceId: selectedService.id || 'unknown',
         serviceName: selectedService.name || 'Serviço',
         duration: serviceDuration,
@@ -1477,11 +1531,11 @@ const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking, servic
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               {safeServices.length > 0 ? (
                 safeServices.map(service => (
-                  <button
-                    key={service.id}
-                    onClick={() => handleSelectService(service)}
+                <button
+                  key={service.id}
+                  onClick={() => handleSelectService(service)}
                     className="bg-gray-700 p-3 sm:p-4 rounded-lg shadow-lg text-left w-full hover:bg-gray-600 hover:ring-2 hover:ring-yellow-500 transition-all"
-                  >
+                >
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-base sm:text-lg font-semibold text-white">{service?.name || 'Serviço'}</p>
@@ -1509,9 +1563,9 @@ const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking, servic
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
               {safeBarbers.length > 0 ? (
                 safeBarbers.filter(barber => barber?.isActive !== false).map(barber => (
-                  <button
-                    key={barber.id}
-                    onClick={() => handleSelectBarber(barber)}
+                <button
+                  key={barber.id}
+                  onClick={() => handleSelectBarber(barber)}
                     className={`bg-gray-700 p-3 sm:p-4 rounded-lg shadow-lg text-center w-full hover:bg-gray-600 hover:ring-2 hover:ring-yellow-500 transition-all flex flex-col items-center ${
                     selectedBarber?.id === barber.id ? 'ring-2 ring-yellow-500' : ''
                   }`}
@@ -1527,7 +1581,7 @@ const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking, servic
                       <Star className="h-3 w-3 sm:h-4 sm:w-4 text-yellow-400 mr-1" />
                       <span className="text-yellow-400 text-xs sm:text-sm font-semibold">{(barber?.rating || 5.0).toFixed(1)}</span>
                     </div>
-                  </button>
+                </button>
                 ))
               ) : (
                 <div className="col-span-full text-center py-8">
@@ -1900,7 +1954,7 @@ const TodaysBookingsList = ({ bookings, isLoading, onComplete }) => {
 };
 
 
-// Card de Estatística  
+// Card de Estatística
 const StatCard = ({ title, value, icon, colorClass = 'text-yellow-500' }) => {
   const IconComponent = icon;
   return (
@@ -1913,7 +1967,7 @@ const StatCard = ({ title, value, icon, colorClass = 'text-yellow-500' }) => {
       <p className="text-2xl font-bold text-white">{value}</p>
     </div>
   </div>
-  );
+);
 };
 
 // Formulário de Adicionar Corte Avulso (DESABILITADO - não utilizado)
@@ -3942,9 +3996,14 @@ export default function App() {
   const [, setBookingHistory] = useState([]);
   const [, setIsLoadingHistory] = useState(false);
   
-  const [notifications, setNotifications] = useState([]);
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [adminNotifications, setAdminNotifications] = useState([]);
+  const [showAdminNotifications, setShowAdminNotifications] = useState(false);
+  const [adminUnreadNotifications, setAdminUnreadNotifications] = useState(0);
+  
+  const [clientNotifications, setClientNotifications] = useState([]);
+  const [showClientNotifications, setShowClientNotifications] = useState(false);
+  const [clientUnreadNotifications, setClientUnreadNotifications] = useState(0);
+  const previousBookingStatusesRef = useRef({});
   
   // Estados para serviços, horários e barbeiros
   const [services, setServices] = useState([]);
@@ -3956,9 +4015,8 @@ export default function App() {
   
   // Estados para PWA
   const [deferredPrompt, setDeferredPrompt] = useState(null);
-  const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+  const [, setShowInstallPrompt] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
-  const [showInstallInstructions, setShowInstallInstructions] = useState(false);
 
   // Carregar dados do Firebase - Só executa após autenticação bem-sucedida
   useEffect(() => {
@@ -3978,7 +4036,7 @@ export default function App() {
         const bookingsRef = collection(db, bookingsPath);
         const q = query(bookingsRef, orderBy('startTime', 'desc'));
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribe = onSnapshot(q, (snapshot) => {
           const rawBookingsData = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data(),
@@ -3996,7 +4054,7 @@ export default function App() {
             console.warn(`⚠️ ${duplicatesCount} agendamentos duplicados foram removidos`);
             
             // Adicionar notificação de aviso sobre duplicatas
-            setNotifications(prev => [...prev, {
+            setAdminNotifications(prev => [...prev, {
               id: generateId(),
               type: 'warning',
               message: `${duplicatesCount} agendamentos duplicados foram removidos automaticamente`,
@@ -4007,10 +4065,10 @@ export default function App() {
           
           setBookings(cleanedBookingsData);
           setBookingHistory(cleanedBookingsData);
-          setIsLoadingBookings(false);
+      setIsLoadingBookings(false);
           setIsLoadingHistory(false);
           console.log("✅ Dados carregados e limpos do Firestore:", cleanedBookingsData.length, "agendamentos");
-        }, (error) => {
+    }, (error) => {
           console.error("❌ Erro ao carregar dados do Firestore:", error);
           setError(`Erro ao carregar dados: ${error.message}`);
       setIsLoadingBookings(false);
@@ -4210,25 +4268,26 @@ export default function App() {
 
   // Sistema de notificações em tempo real
   useEffect(() => {
-    if (!userId || authError) return;
+    if (!userId || authError || !isAdmin) {
+      return;
+    }
+
+    let unsubscribe = null;
 
     const setupNotifications = async () => {
       try {
-        // Aguardar autenticação estar pronta
         await waitForAuth();
 
-        // Escutar novos agendamentos para notificações
         const bookingsPath = getCollectionPath(COLLECTIONS.BOOKINGS);
         const bookingsRef = collection(db, bookingsPath);
         const q = query(bookingsRef, orderBy('createdAt', 'desc'));
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
+        unsubscribe = onSnapshot(q, (snapshot) => {
           snapshot.docChanges().forEach((change) => {
             if (change.type === 'added') {
               const newBooking = change.doc.data();
               const bookingId = change.doc.id;
-              
-              // Criar notificação para novo agendamento
+
               const notification = {
                 id: generateId(),
                 type: 'booking',
@@ -4236,19 +4295,18 @@ export default function App() {
                 details: {
                   service: newBooking.serviceName,
                   barber: newBooking.barberName,
-                  date: newBooking.date?.toDate() || new Date(newBooking.date),
-                  time: newBooking.startTime?.toDate() || new Date(newBooking.startTime),
+                  date: newBooking.date?.toDate ? newBooking.date.toDate() : new Date(newBooking.date),
+                  time: newBooking.startTime?.toDate ? newBooking.startTime.toDate() : new Date(newBooking.startTime),
                   price: newBooking.price,
-                  bookingId: bookingId
+                  bookingId
                 },
                 timestamp: new Date(),
                 read: false
               };
 
-              setNotifications(prev => [notification, ...prev]);
-              setUnreadNotifications(prev => prev + 1);
-              
-              // Enviar notificação usando sistema PWA profissional
+              setAdminNotifications(prev => [notification, ...prev]);
+              setAdminUnreadNotifications(prev => prev + 1);
+
               sendNotification('Novo Agendamento', {
                 body: `${newBooking.clientName} agendou ${newBooking.serviceName}`,
                 icon: '/icons/icon-192x192.svg',
@@ -4258,41 +4316,141 @@ export default function App() {
             }
           });
     }, (error) => {
-          console.error("❌ Erro ao escutar notificações:", error);
+          console.error('❌ Erro ao escutar notificações:', error);
         });
-
-        return () => unsubscribe();
       } catch (error) {
-        console.error("❌ Erro ao configurar notificações:", error);
+        console.error('❌ Erro ao configurar notificações:', error);
       }
     };
 
     setupNotifications();
-  }, [userId, authError]);
+
+    return () => {
+      if (typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
+    };
+  }, [userId, authError, isAdmin]);
   
-  // Funções de notificações
-  const markNotificationAsRead = (notificationId) => {
-    setNotifications(prev => 
-      prev.map(notif => 
+  // Notificações para clientes - conclusão de agendamento
+  useEffect(() => {
+    if (!userId || isAdmin) {
+      return;
+    }
+
+    const prevStatuses = previousBookingStatusesRef.current;
+    const userBookings = bookings.filter(booking => booking?.userId === userId);
+    const activeBookingIds = new Set();
+
+    userBookings.forEach((booking) => {
+      if (!booking?.id) {
+        return;
+      }
+
+      activeBookingIds.add(booking.id);
+      const currentStatus = booking.status;
+      const previousStatus = prevStatuses[booking.id]?.status;
+
+      if (!previousStatus) {
+        prevStatuses[booking.id] = { status: currentStatus };
+        return;
+      }
+
+      if (previousStatus !== currentStatus) {
+        if (currentStatus === 'completed') {
+          let shouldNotify = false;
+          const notificationPayload = {
+            id: generateId(),
+            type: 'booking-completed',
+            bookingId: booking.id,
+            title: 'Serviço concluído',
+            message: `Seu corte com ${booking.barberName || 'nosso barbeiro'} foi concluído com sucesso!`,
+            timestamp: new Date(),
+            read: false
+          };
+
+          setClientNotifications(prev => {
+            const alreadyExists = prev.some(
+              notif => notif.type === 'booking-completed' && notif.bookingId === booking.id
+            );
+
+            if (alreadyExists) {
+              return prev;
+            }
+
+            shouldNotify = true;
+            return [notificationPayload, ...prev];
+          });
+
+          if (shouldNotify) {
+            setClientUnreadNotifications(prev => prev + 1);
+            sendNotification('Serviço concluído', {
+              body: `Seu corte com ${booking.barberName || 'nosso barbeiro'} foi finalizado. Obrigado por escolher a Barbearia Navalha Dourada!`,
+              icon: '/icons/icon-192x192.svg',
+              tag: `booking-completed-${booking.id}`
+            });
+          }
+        }
+
+        prevStatuses[booking.id] = { status: currentStatus };
+      }
+    });
+
+    Object.keys(prevStatuses).forEach((bookingId) => {
+      if (!activeBookingIds.has(bookingId)) {
+        delete prevStatuses[bookingId];
+      }
+    });
+  }, [bookings, userId, isAdmin, previousBookingStatusesRef]);
+
+  // Funções de notificações - Admin
+  const markAdminNotificationAsRead = (notificationId) => {
+    setAdminNotifications(prev =>
+      prev.map(notif =>
         notif.id === notificationId ? { ...notif, read: true } : notif
       )
     );
-    setUnreadNotifications(prev => Math.max(0, prev - 1));
+    setAdminUnreadNotifications(prev => Math.max(0, prev - 1));
   };
 
-  const removeNotification = (notificationId) => {
-    setNotifications(prev => {
+  const removeAdminNotification = (notificationId) => {
+    setAdminNotifications(prev => {
       const notification = prev.find(n => n.id === notificationId);
       if (notification && !notification.read) {
-        setUnreadNotifications(prev => Math.max(0, prev - 1));
+        setAdminUnreadNotifications(prev => Math.max(0, prev - 1));
       }
       return prev.filter(n => n.id !== notificationId);
     });
   };
 
-  const clearAllNotifications = () => {
-    setNotifications([]);
-    setUnreadNotifications(0);
+  const clearAllAdminNotifications = () => {
+    setAdminNotifications([]);
+    setAdminUnreadNotifications(0);
+  };
+
+  // Funções de notificações - Cliente
+  const markClientNotificationAsRead = (notificationId) => {
+    setClientNotifications(prev =>
+      prev.map(notif =>
+        notif.id === notificationId ? { ...notif, read: true } : notif
+      )
+    );
+    setClientUnreadNotifications(prev => Math.max(0, prev - 1));
+  };
+
+  const removeClientNotification = (notificationId) => {
+    setClientNotifications(prev => {
+      const notification = prev.find(n => n.id === notificationId);
+      if (notification && !notification.read) {
+        setClientUnreadNotifications(prev => Math.max(0, prev - 1));
+      }
+      return prev.filter(n => n.id !== notificationId);
+    });
+  };
+
+  const clearAllClientNotifications = () => {
+    setClientNotifications([]);
+    setClientUnreadNotifications(0);
   };
 
   // Função para excluir todos os dados (apenas para administradores)
@@ -4332,7 +4490,7 @@ export default function App() {
       console.log("✅ Serviço adicionado com sucesso");
       
       // Adicionar notificação de sucesso
-      setNotifications(prev => [...prev, {
+      setAdminNotifications(prev => [...prev, {
         id: generateId(),
         type: 'success',
         message: `Serviço "${serviceData.name}" adicionado com sucesso`,
@@ -4342,7 +4500,7 @@ export default function App() {
       
     } catch (error) {
       console.error("❌ Erro ao adicionar serviço:", error);
-      setNotifications(prev => [...prev, {
+      setAdminNotifications(prev => [...prev, {
         id: generateId(),
         type: 'error',
         message: `Erro ao adicionar serviço: ${error.message}`,
@@ -4371,7 +4529,7 @@ export default function App() {
       console.log("✅ Serviço atualizado com sucesso");
       
       // Adicionar notificação de sucesso
-      setNotifications(prev => [...prev, {
+      setAdminNotifications(prev => [...prev, {
         id: generateId(),
         type: 'success',
         message: `Serviço "${serviceData.name}" atualizado com sucesso`,
@@ -4381,7 +4539,7 @@ export default function App() {
       
     } catch (error) {
       console.error("❌ Erro ao atualizar serviço:", error);
-      setNotifications(prev => [...prev, {
+      setAdminNotifications(prev => [...prev, {
         id: generateId(),
         type: 'error',
         message: `Erro ao atualizar serviço: ${error.message}`,
@@ -4402,7 +4560,7 @@ export default function App() {
       console.log("✅ Serviço excluído com sucesso");
       
       // Adicionar notificação de sucesso
-      setNotifications(prev => [...prev, {
+      setAdminNotifications(prev => [...prev, {
         id: generateId(),
         type: 'success',
         message: `Serviço "${serviceName}" excluído com sucesso`,
@@ -4412,7 +4570,7 @@ export default function App() {
       
     } catch (error) {
       console.error("❌ Erro ao excluir serviço:", error);
-      setNotifications(prev => [...prev, {
+      setAdminNotifications(prev => [...prev, {
         id: generateId(),
         type: 'error',
         message: `Erro ao excluir serviço: ${error.message}`,
@@ -4444,7 +4602,7 @@ export default function App() {
       console.log("✅ Horário adicionado com sucesso");
       
       // Adicionar notificação de sucesso
-      setNotifications(prev => [...prev, {
+      setAdminNotifications(prev => [...prev, {
         id: generateId(),
         type: 'success',
         message: `Horário para ${scheduleData.barberName} adicionado com sucesso`,
@@ -4454,7 +4612,7 @@ export default function App() {
       
     } catch (error) {
       console.error("❌ Erro ao adicionar horário:", error);
-      setNotifications(prev => [...prev, {
+      setAdminNotifications(prev => [...prev, {
         id: generateId(),
         type: 'error',
         message: `Erro ao adicionar horário: ${error.message}`,
@@ -4484,7 +4642,7 @@ export default function App() {
       console.log("✅ Horário atualizado com sucesso");
       
       // Adicionar notificação de sucesso
-      setNotifications(prev => [...prev, {
+      setAdminNotifications(prev => [...prev, {
         id: generateId(),
         type: 'success',
         message: `Horário para ${scheduleData.barberName} atualizado com sucesso`,
@@ -4494,7 +4652,7 @@ export default function App() {
       
     } catch (error) {
       console.error("❌ Erro ao atualizar horário:", error);
-      setNotifications(prev => [...prev, {
+      setAdminNotifications(prev => [...prev, {
         id: generateId(),
         type: 'error',
         message: `Erro ao atualizar horário: ${error.message}`,
@@ -4515,7 +4673,7 @@ export default function App() {
       console.log("✅ Horário excluído com sucesso");
       
       // Adicionar notificação de sucesso
-      setNotifications(prev => [...prev, {
+      setAdminNotifications(prev => [...prev, {
         id: generateId(),
         type: 'success',
         message: `Horário para ${barberName} excluído com sucesso`,
@@ -4525,7 +4683,7 @@ export default function App() {
       
     } catch (error) {
       console.error("❌ Erro ao excluir horário:", error);
-      setNotifications(prev => [...prev, {
+      setAdminNotifications(prev => [...prev, {
         id: generateId(),
         type: 'error',
         message: `Erro ao excluir horário: ${error.message}`,
@@ -4559,7 +4717,7 @@ export default function App() {
       console.log("✅ Barbeiro adicionado com sucesso");
       
       // Adicionar notificação de sucesso
-      setNotifications(prev => [...prev, {
+      setAdminNotifications(prev => [...prev, {
         id: generateId(),
         type: 'success',
         message: `Barbeiro "${barberData.name}" adicionado com sucesso`,
@@ -4569,7 +4727,7 @@ export default function App() {
       
     } catch (error) {
       console.error("❌ Erro ao adicionar barbeiro:", error);
-      setNotifications(prev => [...prev, {
+      setAdminNotifications(prev => [...prev, {
         id: generateId(),
         type: 'error',
         message: `Erro ao adicionar barbeiro: ${error.message}`,
@@ -4601,7 +4759,7 @@ export default function App() {
       console.log("✅ Barbeiro atualizado com sucesso");
       
       // Adicionar notificação de sucesso
-      setNotifications(prev => [...prev, {
+      setAdminNotifications(prev => [...prev, {
         id: generateId(),
         type: 'success',
         message: `Barbeiro "${barberData.name}" atualizado com sucesso`,
@@ -4611,7 +4769,7 @@ export default function App() {
       
     } catch (error) {
       console.error("❌ Erro ao atualizar barbeiro:", error);
-      setNotifications(prev => [...prev, {
+      setAdminNotifications(prev => [...prev, {
         id: generateId(),
         type: 'error',
         message: `Erro ao atualizar barbeiro: ${error.message}`,
@@ -4645,7 +4803,7 @@ export default function App() {
       console.log("✅ Barbeiro e horários relacionados excluídos com sucesso");
       
       // Adicionar notificação de sucesso
-      setNotifications(prev => [...prev, {
+      setAdminNotifications(prev => [...prev, {
         id: generateId(),
         type: 'success',
         message: `Barbeiro "${barberName}" e horários relacionados excluídos com sucesso`,
@@ -4655,7 +4813,7 @@ export default function App() {
       
     } catch (error) {
       console.error("❌ Erro ao excluir barbeiro:", error);
-      setNotifications(prev => [...prev, {
+      setAdminNotifications(prev => [...prev, {
         id: generateId(),
         type: 'error',
         message: `Erro ao excluir barbeiro: ${error.message}`,
@@ -4708,20 +4866,33 @@ export default function App() {
     setShowIOSModal(false);
   };
 
-  // Funções legadas (manter compatibilidade)
-  const handleInstallPWA = handleInstallAndroid;
-
+  // Exibir instruções de instalação sob demanda
   const handleShowInstallInstructions = () => {
-    setShowInstallInstructions(true);
+    const ua = window.navigator.userAgent.toLowerCase();
+
+    if (ua.includes('android')) {
+      if (deferredPrompt) {
+        handleInstallPWA();
+      } else {
+        setShowAndroidBanner(true);
+      }
+      return;
+    }
+
+    if (ua.includes('iphone') || ua.includes('ipad')) {
+      setShowIOSModal(true);
+      return;
+    }
+
+    setShowAndroidBanner(true);
   };
 
-  const handleCloseInstallInstructions = () => {
-    setShowInstallInstructions(false);
-  };
+  // Funções legadas (manter compatibilidade)
+  const handleInstallPWA = () => handleInstallAndroid();
 
-  const handleCloseInstallPrompt = () => {
-    setShowInstallPrompt(false);
-  };
+  const handleCloseInstallInstructions = () => handleCloseIOSModal();
+
+  const handleCloseInstallPrompt = () => handleCloseAndroidBanner();
 
   // Funções de admin
   const handleAdminLogin = () => {
@@ -4767,7 +4938,7 @@ export default function App() {
       console.log("✅ Agendamento adicionado com ID:", docRef.id);
       
       // Adicionar notificação de sucesso
-      setNotifications(prev => [...prev, {
+      setAdminNotifications(prev => [...prev, {
         id: generateId(),
         type: 'success',
         message: 'Agendamento realizado com sucesso!',
@@ -4903,7 +5074,7 @@ export default function App() {
       console.log("✅ Pagamento confirmado com sucesso");
       
       // Adicionar notificação de sucesso
-      setNotifications(prev => [...prev, {
+      setAdminNotifications(prev => [...prev, {
         id: generateId(),
         type: 'success',
         message: 'Pagamento confirmado com sucesso!',
@@ -5032,27 +5203,39 @@ export default function App() {
     );
   }
 
+  const headerNotifications = isAdmin ? adminNotifications : clientNotifications;
+  const headerUnreadNotifications = isAdmin ? adminUnreadNotifications : clientUnreadNotifications;
+  const headerShowNotifications = isAdmin ? showAdminNotifications : showClientNotifications;
+  const headerSetShowNotifications = isAdmin ? setShowAdminNotifications : setShowClientNotifications;
+  const headerMarkNotificationAsRead = isAdmin ? markAdminNotificationAsRead : markClientNotificationAsRead;
+  const headerRemoveNotification = isAdmin ? removeAdminNotification : removeClientNotification;
+  const headerClearAllNotifications = isAdmin ? clearAllAdminNotifications : clearAllClientNotifications;
+
+  const navigationNotifications = clientNotifications;
+  const navigationShowNotifications = showClientNotifications;
+  const navigationSetShowNotifications = setShowClientNotifications;
+
   return (
     <div className="font-inter bg-gray-900 text-white min-h-screen">
       <Header 
         isAdmin={isAdmin} 
         onLogout={handleAdminLogout}
-        notifications={notifications}
-        unreadNotifications={unreadNotifications}
-        showNotifications={showNotifications}
-        setShowNotifications={setShowNotifications}
-        markNotificationAsRead={markNotificationAsRead}
-        removeNotification={removeNotification}
-        clearAllNotifications={clearAllNotifications}
+        notifications={headerNotifications}
+        unreadNotifications={headerUnreadNotifications}
+        showNotifications={headerShowNotifications}
+        setShowNotifications={headerSetShowNotifications}
+        markNotificationAsRead={headerMarkNotificationAsRead}
+        removeNotification={headerRemoveNotification}
+        clearAllNotifications={headerClearAllNotifications}
         onShowInstallInstructions={handleShowInstallInstructions}
         isInstalled={isInstalled}
       />
       <Navigation 
         currentView={currentView} 
         setCurrentView={setCurrentView}
-        notifications={notifications}
-        showNotifications={showNotifications}
-        setShowNotifications={setShowNotifications}
+        notifications={navigationNotifications}
+        showNotifications={navigationShowNotifications}
+        setShowNotifications={navigationSetShowNotifications}
         isAdmin={isAdmin}
         onAdminLogin={handleAdminLogin}
       />
@@ -5060,7 +5243,7 @@ export default function App() {
         className="max-w-5xl mx-auto p-4 md:p-6"
         onClick={() => {
           // Fecha o painel de notificações se clicar fora
-          if (showNotifications) setShowNotifications(false);
+          if (headerShowNotifications) headerSetShowNotifications(false);
         }}
       >
         {renderView()}
@@ -5073,14 +5256,14 @@ export default function App() {
       {showAndroidBanner && (
         <InstallBannerAndroid 
           onInstall={handleInstallAndroid}
-          onClose={handleCloseAndroidBanner}
+          onClose={handleCloseInstallPrompt}
         />
       )}
       
       {/* PWA Components - iOS Modal */}
       {showIOSModal && (
         <InstallModalIOS 
-          onClose={handleCloseIOSModal}
+          onClose={handleCloseInstallInstructions}
         />
       )}
     </div>
