@@ -58,7 +58,8 @@ const COLLECTIONS = {
   SERVICES: "services",
   BARBERS: "barbers",
   SCHEDULES: "schedules",
-  LUNCH_BREAKS: "lunchBreaks"
+  LUNCH_BREAKS: "lunchBreaks",
+  MONTHLY_PLANS: "monthlyPlans"
 };
 
 // --- Sistema de Barbearia ---
@@ -1220,7 +1221,7 @@ const ErrorBox = ({ message, onDone }) => (
 
 
 // --- Lógica de Geração de Horários ---
-const generateTimeSlots = (selectedDate, serviceDuration, existingBookings, lunchBreaks = [], barberId = null) => {
+const generateTimeSlots = (selectedDate, serviceDuration, existingBookings, lunchBreaks = [], barberId = null, monthlyPlans = []) => {
   const slots = [];
   const { start, end, breakStart, breakEnd } = WORKING_HOURS;
 
@@ -1249,6 +1250,14 @@ const generateTimeSlots = (selectedDate, serviceDuration, existingBookings, lunc
   const activeLunchBreaks = lunchBreaks.filter(lb => 
     lb.date === dateString && 
     (!barberId || lb.barberId === barberId)
+  );
+
+  // Filtrar planos mensais ativos para o barbeiro e dia da semana selecionados
+  const dayOfWeek = selectedDate.getDay().toString();
+  const activeMonthlyPlans = monthlyPlans.filter(plan => 
+    plan.active && 
+    (!barberId || plan.barberId === barberId) &&
+    plan.recurringSlots.some(slot => slot.dayOfWeek === dayOfWeek)
   );
 
   let currentSlotTime = new Date(startTime);
@@ -1288,8 +1297,27 @@ const generateTimeSlots = (selectedDate, serviceDuration, existingBookings, lunc
         break;
       }
     }
+
+    // Verifica se o slot está reservado por um plano mensal
+    let isMonthlyPlanSlot = false;
+    for (const plan of activeMonthlyPlans) {
+      for (const recurringSlot of plan.recurringSlots) {
+        if (recurringSlot.dayOfWeek === dayOfWeek) {
+          const [planH, planM] = recurringSlot.time.split(':').map(Number);
+          const planTime = new Date(localDate);
+          planTime.setHours(planH, planM, 0, 0);
+          
+          // Verifica se o slot coincide com o horário do plano mensal
+          if (slotStart.getTime() === planTime.getTime()) {
+            isMonthlyPlanSlot = true;
+            break;
+          }
+        }
+      }
+      if (isMonthlyPlanSlot) break;
+    }
                           
-    if (!isDuringBreak && !isDuringLunchBreak) {
+    if (!isDuringBreak && !isDuringLunchBreak && !isMonthlyPlanSlot) {
       // Verifica se o slot está ocupado
       const isOccupied = existingBookings.some(booking => {
         const bookingStart = new Date(booking.startTime);
@@ -1313,7 +1341,7 @@ const generateTimeSlots = (selectedDate, serviceDuration, existingBookings, lunc
 
 
 // --- Componente Principal do Fluxo de Agendamento ---
-const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking, services, barbers, lunchBreaks = [] }) => {
+const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking, services, barbers, lunchBreaks = [], monthlyPlans = [] }) => {
   const [step, setStep] = useState(1);
   const [selectedService, setSelectedService] = useState(null);
   const [selectedBarber, setSelectedBarber] = useState(null); // NOVO ESTADO
@@ -1382,12 +1410,13 @@ const availableDates = useMemo(() => {
         selectedService?.duration || 30, 
         bookingsForDayAndBarber,
         lunchBreaks,
-        selectedBarber?.id
+        selectedBarber?.id,
+        monthlyPlans
       );
       setAvailableSlots(slots);
       setIsLoadingSlots(false);
     }
-  }, [selectedDate, selectedService, selectedBarber, bookings, lunchBreaks]);
+  }, [selectedDate, selectedService, selectedBarber, bookings, lunchBreaks, monthlyPlans]);
 
   // Funções de Seleção
   const handleSelectService = (service) => {
@@ -2479,8 +2508,260 @@ const DashboardView = ({ todayBookings, isLoadingTodayBookings, history, isLoadi
 
 // --- Componentes de Admin ---
 
+// Componente de Gerenciamento de Planos Mensais
+const MonthlyPlanManager = ({ barbers, monthlyPlans = [], onAddPlan, onRemovePlan }) => {
+  const [showForm, setShowForm] = useState(false);
+  const [clientName, setClientName] = useState('');
+  const [clientPhone, setClientPhone] = useState('');
+  const [selectedBarber, setSelectedBarber] = useState('');
+  const [recurringSlots, setRecurringSlots] = useState([{ dayOfWeek: '', time: '' }]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const activeBarbers = barbers.filter(b => b.isActive !== false);
+  
+  const daysOfWeek = [
+    { value: '0', label: 'Domingo' },
+    { value: '1', label: 'Segunda-feira' },
+    { value: '2', label: 'Terça-feira' },
+    { value: '3', label: 'Quarta-feira' },
+    { value: '4', label: 'Quinta-feira' },
+    { value: '5', label: 'Sexta-feira' },
+    { value: '6', label: 'Sábado' }
+  ];
+
+  const addSlot = () => {
+    setRecurringSlots([...recurringSlots, { dayOfWeek: '', time: '' }]);
+  };
+
+  const removeSlot = (index) => {
+    setRecurringSlots(recurringSlots.filter((_, i) => i !== index));
+  };
+
+  const updateSlot = (index, field, value) => {
+    const updated = [...recurringSlots];
+    updated[index][field] = value;
+    setRecurringSlots(updated);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!clientName.trim() || !clientPhone.trim() || !selectedBarber) {
+      alert('Por favor, preencha todos os campos obrigatórios');
+      return;
+    }
+
+    const validSlots = recurringSlots.filter(slot => slot.dayOfWeek && slot.time);
+    if (validSlots.length === 0) {
+      alert('Adicione pelo menos um horário recorrente');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const barber = activeBarbers.find(b => b.id === selectedBarber);
+      await onAddPlan({
+        clientName: clientName.trim(),
+        clientPhone: clientPhone.trim(),
+        barberId: selectedBarber,
+        barberName: barber?.name || '',
+        recurringSlots: validSlots,
+        active: true,
+        createdAt: new Date()
+      });
+
+      // Limpar formulário
+      setClientName('');
+      setClientPhone('');
+      setSelectedBarber('');
+      setRecurringSlots([{ dayOfWeek: '', time: '' }]);
+      setShowForm(false);
+      alert('Plano mensal criado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao criar plano mensal:', error);
+      alert('Erro ao criar plano mensal');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleRemovePlan = async (planId, clientName) => {
+    if (confirm(`Deseja realmente cancelar o plano mensal de ${clientName}?`)) {
+      try {
+        await onRemovePlan(planId);
+        alert('Plano mensal cancelado com sucesso!');
+      } catch (error) {
+        console.error('Erro ao cancelar plano:', error);
+        alert('Erro ao cancelar plano mensal');
+      }
+    }
+  };
+
+  const getDayLabel = (dayValue) => {
+    return daysOfWeek.find(d => d.value === dayValue)?.label || dayValue;
+  };
+
+  return (
+    <div className="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-xl">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg sm:text-xl font-semibold text-white flex items-center">
+          <Calendar className="h-5 w-5 mr-2" />
+          Planos Mensais
+        </h3>
+        <button
+          onClick={() => setShowForm(!showForm)}
+          className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-500 transition-all text-sm font-medium"
+        >
+          {showForm ? 'Cancelar' : '+ Novo Plano'}
+        </button>
+      </div>
+
+      {showForm && (
+        <form onSubmit={handleSubmit} className="bg-gray-700 p-4 rounded-lg mb-4 space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Nome do Cliente *</label>
+              <input
+                type="text"
+                value={clientName}
+                onChange={(e) => setClientName(e.target.value)}
+                className="w-full bg-gray-600 text-white border-gray-500 rounded-lg p-3 focus:ring-white focus:border-white"
+                placeholder="Nome completo"
+                disabled={isSubmitting}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Telefone *</label>
+              <input
+                type="tel"
+                value={clientPhone}
+                onChange={(e) => setClientPhone(e.target.value)}
+                className="w-full bg-gray-600 text-white border-gray-500 rounded-lg p-3 focus:ring-white focus:border-white"
+                placeholder="(00) 00000-0000"
+                disabled={isSubmitting}
+                required
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Barbeiro *</label>
+            <select
+              value={selectedBarber}
+              onChange={(e) => setSelectedBarber(e.target.value)}
+              className="w-full bg-gray-600 text-white border-gray-500 rounded-lg p-3 focus:ring-white focus:border-white"
+              disabled={isSubmitting}
+              required
+            >
+              <option value="">Selecione um barbeiro</option>
+              {activeBarbers.map(barber => (
+                <option key={barber.id} value={barber.id}>{barber.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Horários Recorrentes *</label>
+            <div className="space-y-2">
+              {recurringSlots.map((slot, index) => (
+                <div key={index} className="flex gap-2">
+                  <select
+                    value={slot.dayOfWeek}
+                    onChange={(e) => updateSlot(index, 'dayOfWeek', e.target.value)}
+                    className="flex-1 bg-gray-600 text-white border-gray-500 rounded-lg p-2 focus:ring-white focus:border-white text-sm"
+                    disabled={isSubmitting}
+                  >
+                    <option value="">Dia da semana</option>
+                    {daysOfWeek.map(day => (
+                      <option key={day.value} value={day.value}>{day.label}</option>
+                    ))}
+                  </select>
+                  <input
+                    type="time"
+                    value={slot.time}
+                    onChange={(e) => updateSlot(index, 'time', e.target.value)}
+                    className="flex-1 bg-gray-600 text-white border-gray-500 rounded-lg p-2 focus:ring-white focus:border-white text-sm"
+                    disabled={isSubmitting}
+                  />
+                  {recurringSlots.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeSlot(index)}
+                      className="bg-red-600 text-white px-3 py-2 rounded-lg hover:bg-red-500 transition-all"
+                      disabled={isSubmitting}
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={addSlot}
+              className="mt-2 text-white text-sm hover:text-gray-300 transition-all"
+              disabled={isSubmitting}
+            >
+              + Adicionar outro horário
+            </button>
+          </div>
+
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isSubmitting ? 'Salvando...' : 'Criar Plano Mensal'}
+          </button>
+        </form>
+      )}
+
+      {/* Lista de Planos Ativos */}
+      <div>
+        <h4 className="text-md font-semibold text-white mb-3">Planos Ativos ({monthlyPlans.filter(p => p.active).length})</h4>
+        {monthlyPlans.filter(p => p.active).length > 0 ? (
+          <div className="space-y-2">
+            {monthlyPlans.filter(p => p.active).map(plan => (
+              <div key={plan.id} className="bg-blue-900/30 border border-blue-500 p-3 rounded-lg">
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <p className="text-white font-semibold">{plan.clientName}</p>
+                    <p className="text-blue-300 text-sm">{plan.clientPhone}</p>
+                    <p className="text-gray-400 text-xs">Barbeiro: {plan.barberName}</p>
+                  </div>
+                  <button
+                    onClick={() => handleRemovePlan(plan.id, plan.clientName)}
+                    className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-500 transition-all"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+                <div className="mt-2 pt-2 border-t border-blue-700">
+                  <p className="text-gray-300 text-xs mb-1">Horários reservados:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {plan.recurringSlots.map((slot, idx) => (
+                      <span key={idx} className="bg-blue-800 text-blue-200 px-2 py-1 rounded text-xs">
+                        {getDayLabel(slot.dayOfWeek)} às {slot.time}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-gray-400 text-center py-4 text-sm">
+            Nenhum plano mensal ativo
+          </p>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // Dashboard Admin Principal
-const AdminDashboard = ({ bookings, services = [], barbers = [], onAddWalkIn, userId }) => {
+const AdminDashboard = ({ bookings, services = [], barbers = [], onAddWalkIn, userId, monthlyPlans = [], onAddMonthlyPlan, onRemoveMonthlyPlan }) => {
   const [timeFilter, setTimeFilter] = useState('week'); // 'day', 'week', 'month'
   const hasWalkInForm = typeof onAddWalkIn === 'function';
   
@@ -2659,6 +2940,14 @@ const AdminDashboard = ({ bookings, services = [], barbers = [], onAddWalkIn, us
           onAddBooking={onAddWalkIn}
         />
       )}
+
+      {/* Gerenciador de Planos Mensais */}
+      <MonthlyPlanManager
+        barbers={barbers}
+        monthlyPlans={monthlyPlans}
+        onAddPlan={onAddMonthlyPlan}
+        onRemovePlan={onRemoveMonthlyPlan}
+      />
     </div>
   );
 };
@@ -4367,6 +4656,7 @@ export default function App() {
   const [schedules, setSchedules] = useState([]);
   const [barbers, setBarbers] = useState([]);
   const [lunchBreaks, setLunchBreaks] = useState([]);
+  const [monthlyPlans, setMonthlyPlans] = useState([]);
   const [, setIsLoadingServices] = useState(false);
   const [, setIsLoadingSchedules] = useState(false);
   const [, setIsLoadingBarbers] = useState(false);
@@ -4494,6 +4784,30 @@ export default function App() {
       }
     };
 
+    const loadMonthlyPlans = async () => {
+      try {
+        const monthlyPlansPath = getCollectionPath(COLLECTIONS.MONTHLY_PLANS);
+        const monthlyPlansRef = collection(db, monthlyPlansPath);
+        const q = query(monthlyPlansRef, orderBy('createdAt', 'desc'));
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+          const monthlyPlansData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          
+          setMonthlyPlans(monthlyPlansData);
+          console.log("✅ Planos mensais carregados:", monthlyPlansData.length);
+        }, (error) => {
+          console.error("❌ Erro ao carregar planos mensais:", error);
+        });
+        
+        return () => unsubscribe();
+      } catch (error) {
+        console.error("❌ Erro ao carregar planos mensais:", error);
+      }
+    };
+
     const loadSchedules = async () => {
       try {
         setIsLoadingSchedules(true);
@@ -4555,6 +4869,7 @@ export default function App() {
     loadSchedules();
     loadBarbers();
     loadLunchBreaks();
+    loadMonthlyPlans();
   }, [userId, authError]);
 
   // ========================================
@@ -5237,6 +5552,81 @@ export default function App() {
     }
   };
 
+  // Funções para Gerenciar Planos Mensais
+  const handleAddMonthlyPlan = async (planData) => {
+    try {
+      await waitForAuth();
+      
+      const monthlyPlansPath = getCollectionPath(COLLECTIONS.MONTHLY_PLANS);
+      const monthlyPlansRef = collection(db, monthlyPlansPath);
+      
+      const newPlan = {
+        clientName: planData.clientName,
+        clientPhone: planData.clientPhone,
+        barberId: planData.barberId,
+        barberName: planData.barberName,
+        recurringSlots: planData.recurringSlots,
+        active: true,
+        createdAt: new Date()
+      };
+      
+      await addDoc(monthlyPlansRef, newPlan);
+      console.log("✅ Plano mensal criado com sucesso");
+      
+      // Adicionar notificação de sucesso
+      setAdminNotifications(prev => [...prev, {
+        id: generateId(),
+        type: 'success',
+        message: `Plano mensal criado: ${planData.clientName} - ${planData.recurringSlots.length} horário(s) reservado(s)`,
+        timestamp: new Date(),
+        read: false
+      }]);
+      
+    } catch (error) {
+      console.error("❌ Erro ao criar plano mensal:", error);
+      setAdminNotifications(prev => [...prev, {
+        id: generateId(),
+        type: 'error',
+        message: `Erro ao criar plano mensal: ${error.message}`,
+        timestamp: new Date(),
+        read: false
+      }]);
+      throw error;
+    }
+  };
+
+  const handleRemoveMonthlyPlan = async (planId) => {
+    try {
+      await waitForAuth();
+      
+      const monthlyPlansPath = getCollectionPath(COLLECTIONS.MONTHLY_PLANS);
+      const planRef = doc(db, monthlyPlansPath, planId);
+      
+      await deleteDoc(planRef);
+      console.log("✅ Plano mensal cancelado com sucesso");
+      
+      // Adicionar notificação de sucesso
+      setAdminNotifications(prev => [...prev, {
+        id: generateId(),
+        type: 'success',
+        message: 'Plano mensal cancelado com sucesso',
+        timestamp: new Date(),
+        read: false
+      }]);
+      
+    } catch (error) {
+      console.error("❌ Erro ao cancelar plano mensal:", error);
+      setAdminNotifications(prev => [...prev, {
+        id: generateId(),
+        type: 'error',
+        message: `Erro ao cancelar plano mensal: ${error.message}`,
+        timestamp: new Date(),
+        read: false
+      }]);
+      throw error;
+    }
+  };
+
   const handleDeleteBarber = async (barberId, barberName) => {
     try {
       await waitForAuth();
@@ -5601,6 +5991,9 @@ export default function App() {
             barbers={barbers} 
             onAddWalkIn={handleAddBooking}
             userId={userId}
+            monthlyPlans={monthlyPlans}
+            onAddMonthlyPlan={handleAddMonthlyPlan}
+            onRemoveMonthlyPlan={handleRemoveMonthlyPlan}
           />
         );
       case 'admin_bookings':
@@ -5638,6 +6031,9 @@ export default function App() {
               barbers={barbers} 
               onAddWalkIn={handleAddBooking}
               userId={userId}
+              monthlyPlans={monthlyPlans}
+              onAddMonthlyPlan={handleAddMonthlyPlan}
+              onRemoveMonthlyPlan={handleRemoveMonthlyPlan}
             />
           );
       }
@@ -5650,7 +6046,8 @@ export default function App() {
       case 'book':
         return (
           <BookingFlow
-            lunchBreaks={lunchBreaks} 
+            lunchBreaks={lunchBreaks}
+            monthlyPlans={monthlyPlans}
             bookings={bookings}
             userId={userId}
             onBookingComplete={() => setCurrentView('my_bookings')}
