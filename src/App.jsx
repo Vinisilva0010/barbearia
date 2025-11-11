@@ -76,9 +76,10 @@ const SERVICES = [
 ];
 
 const BARBERS = [
-  { id: 'b1', name: 'Enzo', avatar: 'https://placehold.co/100x100/1F2937/EAB308?text=E', specialty: 'Cortes Clássicos', rating: 4.9, experience: '15 anos' },
-  { id: 'b2', name: 'Gustavo', avatar: 'https://placehold.co/100x100/EAB308/1F2937?text=G', specialty: 'Design de Barba', rating: 4.8, experience: '12 anos' },
-  { id: 'b3', name: 'João', avatar: 'https://placehold.co/100x100/6366F1/FFFFFF?text=J', specialty: 'Cortes Modernos', rating: 4.7, experience: '8 anos' },
+  { id: 'b1', name: 'Adriano', avatar: 'https://placehold.co/100x100/1F2937/EAB308?text=E', specialty: 'Cortes Clássicos', rating: 4.9, experience: '15 anos' },
+  { id: 'b2', name: 'Carlos', avatar: 'https://placehold.co/100x100/EAB308/1F2937?text=G', specialty: 'Design de Barba', rating: 4.8, experience: '12 anos' },
+  { id: 'b3', name: 'Gabriel', avatar: 'https://placehold.co/100x100/6366F1/FFFFFF?text=J', specialty: 'Cortes Modernos', rating: 4.7, experience: '8 anos' },
+  { id: 'b3', name: 'Thiago Alves', avatar: 'https://placehold.co/100x100/6366F1/FFFFFF?text=J', specialty: 'Cortes Modernos', rating: 4.7, experience: '8 anos' },
 ];
 
 // Sistema de armazenamento local
