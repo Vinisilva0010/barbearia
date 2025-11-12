@@ -430,9 +430,9 @@ const addToCalendar = (booking) => {
   
   // Criar o conteúdo do evento
   const eventDetails = {
-    title: `Corte na Barbearia - ${booking.serviceName}`,
-    description: `Serviço: ${booking.serviceName}\nBarbeiro: ${booking.barberName}\nCliente: ${booking.clientName}\nValor: R$ ${booking.price.toFixed(2)}\n\nBarbearia Navalha Dourada`,
-    location: 'Barbearia Navalha Dourada',
+    title: `Bigode cortes - ${booking.serviceName}`,
+    description: `Serviço: ${booking.serviceName}\nBarbeiro: ${booking.barberName}\nCliente: ${booking.clientName}\nValor: R$ ${booking.price.toFixed(2)}\n\nBarbearia Bigode cortes`,
+    location: 'Barbearia Bigode cortes',
     startTime: startFormatted,
     endTime: endFormatted,
     reminder: '20' // 20 minutos antes
@@ -1222,17 +1222,22 @@ const ErrorBox = ({ message, onDone }) => (
 
 
 // --- Lógica de Geração de Horários ---
-const generateTimeSlots = (selectedDate, serviceDuration, existingBookings, lunchBreaks = [], barberId = null, monthlyPlans = []) => {
+const generateTimeSlots = (
+  selectedDate,
+  serviceDuration,
+  existingBookings,
+  start = "09:00",
+  end = "18:00"
+) => {
   const slots = [];
-  const { start, end, breakStart, breakEnd } = WORKING_HOURS;
-
-  // Converte a data selecionada para o fuso horário local
+  // Usa o horário passado do admin, ou padrão se faltar!
   const localDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
-  
-  const [startH, startM] = start.split(':').map(Number);
-  const [endH, endM] = end.split(':').map(Number);
-  const [breakStartH, breakStartM] = breakStart.split(':').map(Number);
-  const [breakEndH, breakEndM] = breakEnd.split(':').map(Number);
+
+  const startStr = typeof start === "string" ? start : "09:00";
+  const endStr = typeof end === "string" ? end : "18:00";
+
+  const [startH, startM] = startStr.split(':').map(Number);
+  const [endH, endM] = endStr.split(':').map(Number);
 
   const startTime = new Date(localDate);
   startTime.setHours(startH, startM, 0, 0);
@@ -1240,109 +1245,36 @@ const generateTimeSlots = (selectedDate, serviceDuration, existingBookings, lunc
   const endTime = new Date(localDate);
   endTime.setHours(endH, endM, 0, 0);
 
-  const breakStartTime = new Date(localDate);
-  breakStartTime.setHours(breakStartH, breakStartM, 0, 0);
-
-  const breakEndTime = new Date(localDate);
-  breakEndTime.setHours(breakEndH, breakEndM, 0, 0);
-
-  // Filtrar bloqueios de almoço para o barbeiro e data selecionados
-  const dateString = selectedDate.toISOString().split('T')[0];
-  const activeLunchBreaks = lunchBreaks.filter(lb => 
-    lb.date === dateString && 
-    (!barberId || lb.barberId === barberId)
-  );
-
-  // Filtrar planos mensais ativos para o barbeiro e dia da semana selecionados
-  const dayOfWeek = selectedDate.getDay().toString();
-  const activeMonthlyPlans = monthlyPlans.filter(plan => 
-    plan.active && 
-    (!barberId || plan.barberId === barberId) &&
-    plan.recurringSlots.some(slot => slot.dayOfWeek === dayOfWeek)
-  );
-
+  // Você pode manter toda a lógica de break, lunchBreaks e monthlyPlans se quiser!
   let currentSlotTime = new Date(startTime);
 
   while (currentSlotTime < endTime) {
     const slotStart = new Date(currentSlotTime);
     const slotEnd = new Date(slotStart.getTime() + serviceDuration * 60000);
 
-    // Verifica se o slot termina depois do fim do expediente
-    if (slotEnd > endTime) {
-      break;
+    if (slotEnd > endTime) break;
+
+    // Verifica sobreposição com bookings
+    const isOccupied = existingBookings.some(booking => {
+      const bookingStart = new Date(booking.startTime);
+      const bookingEnd = new Date(booking.endTime);
+      return slotStart < bookingEnd && slotEnd > bookingStart;
+    });
+    if (!isOccupied) {
+      slots.push(new Date(slotStart));
     }
-
-    // Verifica se o slot está DENTRO do horário de almoço padrão
-    const isDuringBreak = (slotStart >= breakStartTime && slotStart < breakEndTime) ||
-                          (slotEnd > breakStartTime && slotEnd <= breakEndTime) ||
-                          (slotStart < breakStartTime && slotEnd > breakEndTime);
-
-    // Verifica se o slot está bloqueado por horário de almoço do barbeiro
-    let isDuringLunchBreak = false;
-    for (const lunchBreak of activeLunchBreaks) {
-      const [lunchStartH, lunchStartM] = lunchBreak.startTime.split(':').map(Number);
-      const [lunchEndH, lunchEndM] = lunchBreak.endTime.split(':').map(Number);
-      
-      const lunchStart = new Date(localDate);
-      lunchStart.setHours(lunchStartH, lunchStartM, 0, 0);
-      
-      const lunchEnd = new Date(localDate);
-      lunchEnd.setHours(lunchEndH, lunchEndM, 0, 0);
-      
-      const isInLunchBreak = (slotStart >= lunchStart && slotStart < lunchEnd) ||
-                             (slotEnd > lunchStart && slotEnd <= lunchEnd) ||
-                             (slotStart < lunchStart && slotEnd > lunchEnd);
-      
-      if (isInLunchBreak) {
-        isDuringLunchBreak = true;
-        break;
-      }
-    }
-
-    // Verifica se o slot está reservado por um plano mensal
-    let isMonthlyPlanSlot = false;
-    for (const plan of activeMonthlyPlans) {
-      for (const recurringSlot of plan.recurringSlots) {
-        if (recurringSlot.dayOfWeek === dayOfWeek) {
-          const [planH, planM] = recurringSlot.time.split(':').map(Number);
-          const planTime = new Date(localDate);
-          planTime.setHours(planH, planM, 0, 0);
-          
-          // Verifica se o slot coincide com o horário do plano mensal
-          if (slotStart.getTime() === planTime.getTime()) {
-            isMonthlyPlanSlot = true;
-            break;
-          }
-        }
-      }
-      if (isMonthlyPlanSlot) break;
-    }
-                          
-    if (!isDuringBreak && !isDuringLunchBreak && !isMonthlyPlanSlot) {
-      // Verifica se o slot está ocupado
-      const isOccupied = existingBookings.some(booking => {
-        const bookingStart = new Date(booking.startTime);
-        const bookingEnd = new Date(booking.endTime);
-        
-        // Verifica sobreposição
-        return (slotStart < bookingEnd && slotEnd > bookingStart);
-      });
-
-      if (!isOccupied) {
-        slots.push(new Date(slotStart));
-      }
-    }
-
-    // Avança para o próximo slot (baseado na duração do serviço, ou 30min fixo para simplificar)
-    // Usar 30min fixo é mais simples para evitar buracos
-    currentSlotTime.setMinutes(currentSlotTime.getMinutes() + 30); 
+    // Próximo slot
+    currentSlotTime.setMinutes(currentSlotTime.getMinutes() + 30);
   }
   return slots;
 };
 
 
+
+
 // --- Componente Principal do Fluxo de Agendamento ---
-const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking, services, barbers, lunchBreaks = [], monthlyPlans = [] }) => {
+const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking, services, barbers, schedules, lunchBreaks = [], monthlyPlans = [] }) => {
+
   const [step, setStep] = useState(1);
   const [selectedService, setSelectedService] = useState(null);
   const [selectedBarber, setSelectedBarber] = useState(null); // NOVO ESTADO
@@ -1366,58 +1298,82 @@ const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking, servic
   const stepNames = ["Serviço", "Barbeiro", "Data", "Horário", "Confirmação"];
   
   // Datas disponíveis (próximos 7 dias, filtrando dias fechados)
-const availableDates = useMemo(() => {
-  const dates = [];
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const year = today.getFullYear();
-  const month = today.getMonth();
-  const lastDay = new Date(year, month + 1, 0).getDate();
-
-  for (let day = today.getDate(); day <= lastDay; day++) {
-    const date = new Date(year, month, day);
-    const dayOfWeek = date.getDay();
-    
-    if (WORKING_HOURS.weekdays.includes(dayOfWeek)) {
-      dates.push(date);
+  const availableDates = useMemo(() => {
+    const dates = [];
+    if (!selectedBarber || !schedules) return dates;
+  
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+  
+    // Garante que está pegando corretamente só do barbeiro selecionado
+    const diasAtivosDoBarbeiro = schedules
+      .filter(sch => sch.barberName === selectedBarber.name && sch.isActive)
+      .map(sch => sch.dayOfWeek);
+  
+    // Limite para os próximos 14 dias apenas
+    const maxDays = 14;
+    for (let i = 0; i < maxDays; i++) {
+      const date = new Date(today);
+      date.setDate(today.getDate() + i);
+      const dayOfWeek = date.getDay();
+  
+      if (diasAtivosDoBarbeiro.includes(dayOfWeek)) {
+        dates.push(date);
+      }
     }
-  }
-  return dates;
-}, []);
-
+    return dates;
+  }, [selectedBarber, schedules]);
+  
+  
   
   // Efeito para carregar horários quando a data, serviço e barbeiro mudam
   useEffect(() => {
-    if (selectedDate && selectedService && selectedBarber) { // ATUALIZADO
+    if (selectedDate && selectedService && selectedBarber && schedules) {
       setIsLoadingSlots(true);
-      
-      // Filtra bookings para o dia selecionado
+  
+      // 1. Descobre o dia da semana daquele agendamento
+      const dayOfWeek = selectedDate.getDay();
+  
+      // 2. Busca O HORÁRIO DESSE BARBEIRO NO DIA
+      const horarioDoDia = schedules.find(
+        sch =>
+          sch.barberName.trim().toLowerCase() === selectedBarber.name.trim().toLowerCase() &&
+          sch.dayOfWeek === dayOfWeek &&
+          sch.isActive
+      );
+  
+      // 3. Se não há horário, não mostra slots
+      if (!horarioDoDia) {
+        setAvailableSlots([]);
+        setIsLoadingSlots(false);
+        return;
+      }
+  
+      // 4. Filtra bookings para o dia selecionado
       const dateStart = new Date(selectedDate);
       dateStart.setHours(0, 0, 0, 0);
       const dateEnd = new Date(selectedDate);
       dateEnd.setHours(23, 59, 59, 999);
-      
-      const bookingsForDayAndBarber = bookings.filter(b => { // ATUALIZADO
+  
+      const bookingsForDayAndBarber = bookings.filter(b => {
         const bDate = new Date(b.startTime);
-        // Filtra pelo dia E pelo barbeiro selecionado
-        return bDate >= dateStart && 
-               bDate <= dateEnd && 
-               b.barberId === selectedBarber.id;
+        return bDate >= dateStart && bDate <= dateEnd && b.barberId === selectedBarber.id;
       });
-      
+  
+      // 5. Gera os slots APENAS dentro daquele intervalo do horário do admin
       const slots = generateTimeSlots(
-        selectedDate, 
-        selectedService?.duration || 30, 
+        selectedDate,
+        selectedService?.duration || 30,
         bookingsForDayAndBarber,
-        lunchBreaks,
-        selectedBarber?.id,
-        monthlyPlans
+        horarioDoDia.startTime,
+        horarioDoDia.endTime
       );
+      
       setAvailableSlots(slots);
       setIsLoadingSlots(false);
     }
-  }, [selectedDate, selectedService, selectedBarber, bookings, lunchBreaks, monthlyPlans]);
+  }, [selectedDate, selectedService, selectedBarber, bookings, lunchBreaks, monthlyPlans, schedules]);
+  
 
   // Funções de Seleção
   const handleSelectService = (service) => {
@@ -3563,7 +3519,7 @@ const LunchBreakManager = ({ barbers, lunchBreaks = [], onBlockLunch, onUnblockL
   );
 };
 
-const AdminSettings = ({ onDeleteAllData, services, schedules, barbers, onAddService, onUpdateService, onDeleteService, onAddSchedule, onUpdateSchedule, onDeleteSchedule, onAddBarber, onUpdateBarber, onDeleteBarber, lunchBreaks, onBlockLunch, onUnblockLunch }) => {
+const AdminSettings = ({ onDeleteAllData, services, schedules, barbers, onAddService, onUpdateService, onDeleteService, onAddSchedule, onUpdateSchedule,  onAddBarber, onUpdateBarber, onDeleteBarber, lunchBreaks, onBlockLunch, onUnblockLunch }) => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteProgress, setDeleteProgress] = useState('');
@@ -3579,16 +3535,7 @@ const AdminSettings = ({ onDeleteAllData, services, schedules, barbers, onAddSer
     description: ''
   });
   
-  // Estados para formulários de horários
-  const [showScheduleForm, setShowScheduleForm] = useState(false);
-  const [editingSchedule, setEditingSchedule] = useState(null);
-  const [scheduleForm, setScheduleForm] = useState({
-    barberName: '',
-    dayOfWeek: '',
-    startTime: '',
-    endTime: '',
-    isActive: true
-  });
+  
   
   // Estados para formulários de barbeiros
   const [showBarberForm, setShowBarberForm] = useState(false);
@@ -3602,6 +3549,73 @@ const AdminSettings = ({ onDeleteAllData, services, schedules, barbers, onAddSer
     email: '',
     isActive: true
   });
+
+  const diasDaSemana = [
+    { label: "Domingo", value: 0 },
+    { label: "Segunda", value: 1 },
+    { label: "Terça", value: 2 },
+    { label: "Quarta", value: 3 },
+    { label: "Quinta", value: 4 },
+    { label: "Sexta", value: 5 },
+    { label: "Sábado", value: 6 },
+  ];
+  
+  const [showWeeklyEditModal, setShowWeeklyEditModal] = useState(false);
+  const [barberNameEditando, setBarberNameEditando] = useState("");
+  const [todosHorariosDesteBarbeiro, setTodosHorariosDesteBarbeiro] = useState([]);
+  const [weeklyScheduleForm, setWeeklyScheduleForm] = useState(
+    diasDaSemana.map(dia => ({
+      dayOfWeek: dia.value,
+      startTime: "",
+      endTime: "",
+      isActive: false,
+    }))
+  );
+  
+  function updateDayInForm(idx, changes) {
+    setWeeklyScheduleForm(curr =>
+      curr.map((dia, i) => (i === idx ? { ...dia, ...changes } : dia))
+    );
+  }
+  
+  function openWeeklyEdit(barberName, horariosBarbeiro) {
+    setBarberNameEditando(barberName);
+    setTodosHorariosDesteBarbeiro(horariosBarbeiro);
+    setWeeklyScheduleForm(
+      diasDaSemana.map(dia => {
+        const schedule = horariosBarbeiro.find(s => s.dayOfWeek === dia.value);
+        return schedule
+          ? { ...schedule }
+          : {
+              dayOfWeek: dia.value,
+              isActive: false,
+              startTime: "",
+              endTime: "",
+            };
+      })
+    );
+    setShowWeeklyEditModal(true);
+  }
+  
+  async function handleWeeklySave(barberName, horariosBarbeiro) {
+    for (let i = 0; i < weeklyScheduleForm.length; i++) {
+      const dados = weeklyScheduleForm[i];
+      const existente = horariosBarbeiro.find(s => s.dayOfWeek === dados.dayOfWeek);
+      if (existente) {
+        await onUpdateSchedule(existente.id, {
+          barberName,
+          ...dados,
+        });
+      } else {
+        await onAddSchedule({
+          barberName,
+          ...dados,
+        });
+      }
+    }
+    setShowWeeklyEditModal(false);
+  }
+  
 
   const handleDeleteClick = () => {
     setShowDeleteModal(true);
@@ -3674,39 +3688,11 @@ const AdminSettings = ({ onDeleteAllData, services, schedules, barbers, onAddSer
     }
   };
 
-  // Funções para gerenciar horários
-  const handleScheduleSubmit = async (e) => {
-    e.preventDefault();
+ 
     
-    if (editingSchedule) {
-      await onUpdateSchedule(editingSchedule.id, scheduleForm);
-    } else {
-      await onAddSchedule(scheduleForm);
-    }
-    
-    // Limpar formulário
-    setScheduleForm({ barberName: '', dayOfWeek: '', startTime: '', endTime: '', isActive: true });
-    setEditingSchedule(null);
-    setShowScheduleForm(false);
-  };
+   
 
-  const handleEditSchedule = (schedule) => {
-    setEditingSchedule(schedule);
-    setScheduleForm({
-      barberName: schedule.barberName,
-      dayOfWeek: schedule.dayOfWeek,
-      startTime: schedule.startTime,
-      endTime: schedule.endTime,
-      isActive: schedule.isActive
-    });
-    setShowScheduleForm(true);
-  };
-
-  const handleDeleteSchedule = async (schedule) => {
-    if (window.confirm(`Tem certeza que deseja excluir o horário de ${schedule.barberName}?`)) {
-      await onDeleteSchedule(schedule.id, schedule.barberName);
-    }
-  };
+ 
 
   // Funções para gerenciar barbeiros
   const handleBarberSubmit = async (e) => {
@@ -3809,49 +3795,52 @@ const AdminSettings = ({ onDeleteAllData, services, schedules, barbers, onAddSer
       </div>
 
       {/* Configurações de Horários */}
-      <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
-        <h3 className="text-xl font-semibold text-white mb-4">Gerenciar Horários dos Barbeiros</h3>
-        <div className="space-y-3">
-          {schedules.length > 0 ? (
-            schedules.map(schedule => (
-              <div key={schedule.id} className="bg-gray-700 p-3 rounded-lg flex justify-between items-center">
-                <div>
-                  <p className="text-white font-semibold">{schedule.barberName}</p>
-                  <p className="text-sm text-gray-400">
-                    {['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'][schedule.dayOfWeek]} - 
-                    {schedule.startTime} às {schedule.endTime}
-                  </p>
-                  <p className={`text-xs ${schedule.isActive ? 'text-green-400' : 'text-red-400'}`}>
-                    {schedule.isActive ? 'Ativo' : 'Inativo'}
-                  </p>
-                </div>
-                <div className="flex space-x-2">
-                  <button 
-                    onClick={() => handleEditSchedule(schedule)}
-                    className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-500"
-                  >
-                    Editar
-                  </button>
-                  <button 
-                    onClick={() => handleDeleteSchedule(schedule)}
-                    className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-500"
-                  >
-                    Remover
-                  </button>
-                </div>
-              </div>
-            ))
-          ) : (
-            <p className="text-gray-400 text-center py-4">Nenhum horário cadastrado</p>
-          )}
+<div className="bg-gray-800 p-6 rounded-lg shadow-xl">
+  <h3 className="text-xl font-semibold text-white mb-4">Gerenciar Horários dos Barbeiros</h3>
+  <div className="space-y-3">
+    {barbers.length > 0 ? (
+      barbers.map(barber => (
+        <div key={barber.id}>
+          <div className="bg-gray-700 p-3 rounded-lg flex justify-between items-center">
+            <div>
+              <p className="text-white font-semibold">{barber.name}</p>
+              <ul className="text-sm text-gray-400">
+                {diasDaSemana.map((dia, idx) => {
+                  const schedule = schedules.find(sch => sch.barberName === barber.name && sch.dayOfWeek === idx);
+                  return (
+                    <li key={idx}>
+                      <span className="font-semibold">{dia.label}:</span>
+                      {schedule && schedule.isActive
+                        ? ` ${schedule.startTime} às ${schedule.endTime} `
+                        : ' —'}
+                      {schedule && (
+                        <span className={`ml-2 text-xs ${schedule.isActive ? 'text-green-400' : 'text-red-400'}`}>
+                          {schedule.isActive ? 'Ativo' : 'Inativo'}
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => openWeeklyEdit(
+                  barber.name,
+                  schedules.filter(s => s.barberName === barber.name)
+                )}
+                className="bg-blue-600 text-white px-4 py-1 rounded text-sm hover:bg-blue-500"
+              >
+                Editar Semana
+              </button>
+            </div>
+          </div>
         </div>
-        <button 
-          onClick={() => setShowScheduleForm(true)}
-          className="w-full mt-4 bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-500 transition-all"
-        >
-          Adicionar Novo Horário
-        </button>
-      </div>
+      ))
+    ) : (
+      <p className="text-gray-400 text-center py-4">Nenhum barbeiro cadastrado</p>
+    )}
+  </div>
 
       {/* Configurações de Barbeiros */}
       <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
@@ -4046,105 +4035,70 @@ const AdminSettings = ({ onDeleteAllData, services, schedules, barbers, onAddSer
         </div>
       )}
       
-      {/* Modal de Formulário de Horário */}
-      {showScheduleForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800 rounded-lg shadow-xl max-w-md w-full">
-            <div className="p-6">
-              <h3 className="text-lg font-semibold text-white mb-4">
-                {editingSchedule ? 'Editar Horário' : 'Adicionar Novo Horário'}
-              </h3>
-              
-              <form onSubmit={handleScheduleSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Barbeiro</label>
-                  <select
-                    value={scheduleForm.barberName}
-                    onChange={(e) => setScheduleForm({...scheduleForm, barberName: e.target.value})}
-                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-white focus:border-white"
-                    required
-                  >
-                    <option value="">Selecione um barbeiro</option>
-                    {BARBERS.map(barber => (
-                      <option key={barber.id} value={barber.name}>{barber.name}</option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Dia da Semana</label>
-                  <select
-                    value={scheduleForm.dayOfWeek}
-                    onChange={(e) => setScheduleForm({...scheduleForm, dayOfWeek: parseInt(e.target.value)})}
-                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-white focus:border-white"
-                    required
-                  >
-                    <option value="">Selecione um dia</option>
-                    {['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'].map((day, index) => (
-                      <option key={index} value={index}>{day}</option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Horário de Início</label>
-                  <input
-                    type="time"
-                    value={scheduleForm.startTime}
-                    onChange={(e) => setScheduleForm({...scheduleForm, startTime: e.target.value})}
-                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-white focus:border-white"
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Horário de Fim</label>
-                  <input
-                    type="time"
-                    value={scheduleForm.endTime}
-                    onChange={(e) => setScheduleForm({...scheduleForm, endTime: e.target.value})}
-                    className="w-full bg-gray-700 text-white border-gray-600 rounded-lg p-3 focus:ring-white focus:border-white"
-                    required
-                  />
-                </div>
-                
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="isActive"
-                    checked={scheduleForm.isActive}
-                    onChange={(e) => setScheduleForm({...scheduleForm, isActive: e.target.checked})}
-                    className="w-4 h-4 text-white bg-gray-700 border-gray-600 rounded focus:ring-white"
-                  />
-                  <label htmlFor="isActive" className="ml-2 text-sm text-gray-300">
-                    Horário ativo
-                  </label>
-                </div>
-                
-                <div className="flex space-x-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowScheduleForm(false);
-                      setEditingSchedule(null);
-                      setScheduleForm({ barberName: '', dayOfWeek: '', startTime: '', endTime: '', isActive: true });
-                    }}
-                    className="flex-1 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-500 transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-1 bg-white text-gray-900 font-bold px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors"
-                  >
-                    {editingSchedule ? 'Atualizar' : 'Adicionar'}
-                  </button>
-                </div>
-              </form>
+     {/* Modal de Formulário Semanal */}
+  {showWeeklyEditModal && (
+    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+      <div className="bg-gray-800 rounded-lg shadow-xl max-w-lg w-full p-6 animate-fade-in">
+        <h3 className="text-xl font-semibold text-white mb-4 text-center">
+          Editar Horários Semanais de {barberNameEditando}
+        </h3>
+        <form
+          onSubmit={e => {
+            e.preventDefault();
+            handleWeeklySave(barberNameEditando, todosHorariosDesteBarbeiro);
+          }}
+          className="space-y-4"
+        >
+          {diasDaSemana.map((dia, idx) => (
+            <div key={dia.value} className="flex items-center gap-2 mb-2">
+              <label className="w-24 text-white">{dia.label}</label>
+              <input
+                type="time"
+                className="text-gray-900 px-2 py-1 rounded"
+                value={weeklyScheduleForm[idx].startTime}
+                onChange={e => updateDayInForm(idx, { startTime: e.target.value })}
+                disabled={!weeklyScheduleForm[idx].isActive}
+                required={weeklyScheduleForm[idx].isActive}
+              />
+              <span className="text-white">até</span>
+              <input
+                type="time"
+                className="text-gray-900 px-2 py-1 rounded"
+                value={weeklyScheduleForm[idx].endTime}
+                onChange={e => updateDayInForm(idx, { endTime: e.target.value })}
+                disabled={!weeklyScheduleForm[idx].isActive}
+                required={weeklyScheduleForm[idx].isActive}
+              />
+              <label className="ml-2 text-white flex items-center gap-1">
+                <input
+                  type="checkbox"
+                  checked={weeklyScheduleForm[idx].isActive}
+                  onChange={e => updateDayInForm(idx, { isActive: e.target.checked })}
+                />
+                Ativo
+              </label>
             </div>
+          ))}
+          <div className="flex space-x-2 mt-4">
+            <button
+              type="button"
+              className="flex-1 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-500 transition-colors"
+              onClick={() => setShowWeeklyEditModal(false)}
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              className="flex-1 bg-green-600 text-white font-bold px-4 py-2 rounded-lg hover:bg-green-500 transition-colors"
+            >
+              Salvar Horários Semanais
+            </button>
           </div>
-        </div>
-      )}
+        </form>
+      </div>
+    </div>
+  )}
+</div>
       
       {/* Modal de Formulário de Barbeiro */}
       {showBarberForm && (
@@ -6047,15 +6001,16 @@ export default function App() {
       case 'book':
         return (
           <BookingFlow
-            lunchBreaks={lunchBreaks}
-            monthlyPlans={monthlyPlans}
-            bookings={bookings}
-            userId={userId}
-            onBookingComplete={() => setCurrentView('my_bookings')}
-            onAddBooking={handleAddBooking}
-            services={services}
-            barbers={barbers}
-          />
+          lunchBreaks={lunchBreaks}
+          monthlyPlans={monthlyPlans}
+          bookings={bookings}
+          userId={userId}
+          onBookingComplete={() => setCurrentView('my_bookings')}
+          onAddBooking={handleAddBooking}
+          services={services}
+          barbers={barbers}
+          schedules={schedules}   
+        />
         );
       case 'my_bookings':
         return <BookingsList bookings={bookings} userId={userId} isLoading={isLoadingBookings} />;
