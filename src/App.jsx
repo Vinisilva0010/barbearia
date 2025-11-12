@@ -772,7 +772,7 @@ const Header = ({
         <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-white tracking-wider">
           <span className="hidden sm:inline">Bigodes Cortes </span>
           <span className="sm:hidden">Barbearia</span>
-        </h1>
+      </h1>
         <span className={`ml-3 px-2.5 py-1 rounded-full text-xs font-semibold ${isAdmin ? 'bg-red-500 text-white' : 'bg-green-500 text-gray-900'}`}>
           {isAdmin ? 'Área do Barbeiro' : 'Área do Cliente'}
         </span>
@@ -1060,7 +1060,7 @@ const Home = ({ onBookNow, services, barbers }) => {
         Agendar Agora
       </button>
     </div>
-
+    
     <div className="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-xl">
       <h3 className="text-xl sm:text-2xl font-semibold text-white mb-4 border-l-4 border-white pl-3">Nossos Serviços</h3>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -1071,7 +1071,7 @@ const Home = ({ onBookNow, services, barbers }) => {
               <p className="font-semibold text-white text-sm sm:text-base">{service?.name || 'Serviço'}</p>
               <p className="text-xs sm:text-sm text-gray-300">R$ {(service?.price || 0).toFixed(2)}</p>
               <p className="text-xs text-gray-400">{service?.duration || 30} min</p>
-            </div>
+          </div>
           ))
         ) : (
           <div className="col-span-full text-center py-8">
@@ -1232,7 +1232,7 @@ const generateTimeSlots = (
   const slots = [];
   // Usa o horário passado do admin, ou padrão se faltar!
   const localDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
-
+  
   const startStr = typeof start === "string" ? start : "09:00";
   const endStr = typeof end === "string" ? end : "18:00";
 
@@ -1255,16 +1255,16 @@ const generateTimeSlots = (
     if (slotEnd > endTime) break;
 
     // Verifica sobreposição com bookings
-    const isOccupied = existingBookings.some(booking => {
+      const isOccupied = existingBookings.some(booking => {
       const bookingStart = new Date(booking.startTime);
       const bookingEnd = new Date(booking.endTime);
       return slotStart < bookingEnd && slotEnd > bookingStart;
     });
-    if (!isOccupied) {
-      slots.push(new Date(slotStart));
-    }
+      if (!isOccupied) {
+        slots.push(new Date(slotStart));
+      }
     // Próximo slot
-    currentSlotTime.setMinutes(currentSlotTime.getMinutes() + 30);
+    currentSlotTime.setMinutes(currentSlotTime.getMinutes() + 30); 
   }
   return slots;
 };
@@ -1316,7 +1316,7 @@ const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking, servic
       const date = new Date(today);
       date.setDate(today.getDate() + i);
       const dayOfWeek = date.getDay();
-  
+      
       if (diasAtivosDoBarbeiro.includes(dayOfWeek)) {
         dates.push(date);
       }
@@ -1330,7 +1330,7 @@ const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking, servic
   useEffect(() => {
     if (selectedDate && selectedService && selectedBarber && schedules) {
       setIsLoadingSlots(true);
-  
+      
       // 1. Descobre o dia da semana daquele agendamento
       const dayOfWeek = selectedDate.getDay();
   
@@ -1354,7 +1354,7 @@ const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking, servic
       dateStart.setHours(0, 0, 0, 0);
       const dateEnd = new Date(selectedDate);
       dateEnd.setHours(23, 59, 59, 999);
-  
+      
       const bookingsForDayAndBarber = bookings.filter(b => {
         const bDate = new Date(b.startTime);
         return bDate >= dateStart && bDate <= dateEnd && b.barberId === selectedBarber.id;
@@ -1603,35 +1603,35 @@ const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking, servic
 
       // PASSO 3: ESCOLHER DATA (ERA 2)
       case 3:
-       return (
-  <div className="animate-fade-in">
-    <h3 className="text-xl font-semibold text-white mb-4 text-center">3. Escolha a Data</h3>
-    <p className="text-center text-gray-400 mb-1 text-sm">Serviço: {selectedService?.name}</p>
-    <p className="text-center text-gray-400 mb-4 text-sm">Barbeiro: {selectedBarber?.name}</p>
+        return (
+          <div className="animate-fade-in">
+            <h3 className="text-xl font-semibold text-white mb-4 text-center">3. Escolha a Data</h3>
+            <p className="text-center text-gray-400 mb-1 text-sm">Serviço: {selectedService?.name}</p>
+            <p className="text-center text-gray-400 mb-4 text-sm">Barbeiro: {selectedBarber?.name}</p>
     
     <h4 className="text-lg font-semibold text-white text-center mb-3 capitalize">
       {availableDates[0]?.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
     </h4>
     
     <div className="grid grid-cols-4 md:grid-cols-7 gap-3 max-h-96 overflow-y-auto p-2">
-      {availableDates.map(date => (
-        <button
-          key={date.toISOString()}
-          onClick={() => handleSelectDate(date)}
-          className={`p-3 rounded-lg text-center transition-all ${
-            selectedDate?.toISOString() === date.toISOString()
+              {availableDates.map(date => (
+                <button
+                  key={date.toISOString()}
+                  onClick={() => handleSelectDate(date)}
+                  className={`p-3 rounded-lg text-center transition-all ${
+                    selectedDate?.toISOString() === date.toISOString()
               ? 'bg-white text-gray-900 font-bold'
-              : 'bg-gray-700 text-white hover:bg-gray-600'
-          }`}
-        >
-          <p className="text-xs font-medium uppercase">{date.toLocaleDateString('pt-BR', { weekday: 'short' })}</p>
-          <p className="text-2xl font-bold">{date.getDate()}</p>
+                      : 'bg-gray-700 text-white hover:bg-gray-600'
+                  }`}
+                >
+                  <p className="text-xs font-medium uppercase">{date.toLocaleDateString('pt-BR', { weekday: 'short' })}</p>
+                  <p className="text-2xl font-bold">{date.getDate()}</p>
           <p className="text-xs">{date.toLocaleDateString('pt-BR', { month: 'short' })}</p>
-        </button>
-      ))}
-    </div>
-  </div>
-);
+                </button>
+              ))}
+            </div>
+          </div>
+        );
 
 
       // PASSO 4: ESCOLHER HORÁRIO (ERA 3)
@@ -2534,7 +2534,7 @@ const MonthlyPlanManager = ({ barbers, monthlyPlans = [], onAddPlan, onRemovePla
       setRecurringSlots([{ dayOfWeek: '', time: '' }]);
       setShowForm(false);
       alert('Plano mensal criado com sucesso!');
-    } catch (error) {
+        } catch (error) {
       console.error('Erro ao criar plano mensal:', error);
       alert('Erro ao criar plano mensal');
     } finally {
@@ -2547,7 +2547,7 @@ const MonthlyPlanManager = ({ barbers, monthlyPlans = [], onAddPlan, onRemovePla
       try {
         await onRemovePlan(planId);
         alert('Plano mensal cancelado com sucesso!');
-      } catch (error) {
+        } catch (error) {
         console.error('Erro ao cancelar plano:', error);
         alert('Erro ao cancelar plano mensal');
       }
@@ -2987,7 +2987,12 @@ const AdminBookings = ({ bookings, onUpdateBooking, onConfirmPayment }) => {
                   <h4 className="font-semibold text-white text-sm sm:text-base">{booking.serviceName}</h4>
                   <p className="text-gray-400 text-xs sm:text-sm">Cliente: {booking.clientName}</p>
                   <p className="text-gray-400 text-xs sm:text-sm">Barbeiro: {booking.barberName}</p>
-                  <p className="text-gray-400 text-xs sm:text-sm">Horário: {booking.date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
+                  <p className="text-gray-400 text-xs sm:text-sm">
+                  Horário: {booking.startTime
+                    ? new Date(booking.startTime).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+                    : ''}
+                </p>
+
                 </div>
                 <div className="flex flex-col sm:items-end gap-2 w-full sm:w-auto">
                   <div className="flex items-center gap-2">
@@ -3355,8 +3360,8 @@ const LunchBreakManager = ({ barbers, lunchBreaks = [], onBlockLunch, onUnblockL
   const handleBlockLunch = async () => {
     if (!selectedBarber || !startTime || !endTime || !date) {
       alert('Por favor, preencha todos os campos');
-      return;
-    }
+           return;
+        }
 
     if (startTime >= endTime) {
       alert('O horário de início deve ser antes do horário de término');
@@ -4559,9 +4564,9 @@ export default function App() {
             }
             setIsLoading(false);
           }
-        });
+    });
 
-        return () => unsubscribe();
+    return () => unsubscribe();
       } catch (error) {
         console.error("❌ Erro na inicialização da autenticação:", error);
         setAuthError("Erro crítico na inicialização do Firebase");
@@ -6000,17 +6005,17 @@ export default function App() {
         return <Home onBookNow={() => setCurrentView('book')} services={services} barbers={barbers} />;
       case 'book':
         return (
-          <BookingFlow
+          <BookingFlow 
           lunchBreaks={lunchBreaks}
           monthlyPlans={monthlyPlans}
           bookings={bookings}
-          userId={userId}
-          onBookingComplete={() => setCurrentView('my_bookings')}
+            userId={userId}
+            onBookingComplete={() => setCurrentView('my_bookings')}
           onAddBooking={handleAddBooking}
           services={services}
           barbers={barbers}
           schedules={schedules}   
-        />
+          />
         );
       case 'my_bookings':
         return <BookingsList bookings={bookings} userId={userId} isLoading={isLoadingBookings} />;
