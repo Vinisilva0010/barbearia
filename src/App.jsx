@@ -25,7 +25,8 @@ import {
   MapPin,      // NOVO - para localização
   Award,       // NOVO - para conquistas
   Target,      // NOVO - para metas
-  Zap,         // NOVO - para promoções
+  Zap,    
+  Trash2     // NOVO - para promoções
 } from 'lucide-react';
 
 import logoImg from './assets/logo.png';
@@ -33,7 +34,7 @@ import logoImg from './assets/logo.png';
 // Firebase imports
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, where, setDoc, getDoc, getDocs, writeBatch } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, where, setDoc, getDoc, getDocs, writeBatch, Timestamp } from 'firebase/firestore';
 
 // Firebase Configuration - Configuração corrigida com chaves reais
 const firebaseConfig = {
@@ -1222,52 +1223,7 @@ const ErrorBox = ({ message, onDone }) => (
 
 
 // --- Lógica de Geração de Horários ---
-const generateTimeSlots = (
-  selectedDate,
-  serviceDuration,
-  existingBookings,
-  start = "09:00",
-  end = "18:00"
-) => {
-  const slots = [];
-  // Usa o horário passado do admin, ou padrão se faltar!
-  const localDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
-  
-  const startStr = typeof start === "string" ? start : "09:00";
-  const endStr = typeof end === "string" ? end : "18:00";
 
-  const [startH, startM] = startStr.split(':').map(Number);
-  const [endH, endM] = endStr.split(':').map(Number);
-
-  const startTime = new Date(localDate);
-  startTime.setHours(startH, startM, 0, 0);
-
-  const endTime = new Date(localDate);
-  endTime.setHours(endH, endM, 0, 0);
-
-  // Você pode manter toda a lógica de break, lunchBreaks e monthlyPlans se quiser!
-  let currentSlotTime = new Date(startTime);
-
-  while (currentSlotTime < endTime) {
-    const slotStart = new Date(currentSlotTime);
-    const slotEnd = new Date(slotStart.getTime() + serviceDuration * 60000);
-
-    if (slotEnd > endTime) break;
-
-    // Verifica sobreposição com bookings
-      const isOccupied = existingBookings.some(booking => {
-      const bookingStart = new Date(booking.startTime);
-      const bookingEnd = new Date(booking.endTime);
-      return slotStart < bookingEnd && slotEnd > bookingStart;
-    });
-      if (!isOccupied) {
-        slots.push(new Date(slotStart));
-      }
-    // Próximo slot
-    currentSlotTime.setMinutes(currentSlotTime.getMinutes() + 30); 
-  }
-  return slots;
-};
 
 
 
@@ -1290,89 +1246,141 @@ const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking, servic
   const [isLoading, setIsLoading] = useState(false);
   
   // Proteção contra dados undefined/null
-  const safeServices = services || [];
-  const safeBarbers = barbers || [];
-  // safeBookings definido mas usado em outros componentes via props
-  
-  // Nomes dos Passos
-  const stepNames = ["Serviço", "Barbeiro", "Data", "Horário", "Confirmação"];
-  
-  // Datas disponíveis (próximos 7 dias, filtrando dias fechados)
-  const availableDates = useMemo(() => {
-    const dates = [];
-    if (!selectedBarber || !schedules) return dates;
-  
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-  
-    // Garante que está pegando corretamente só do barbeiro selecionado
-    const diasAtivosDoBarbeiro = schedules
-      .filter(sch => sch.barberName === selectedBarber.name && sch.isActive)
-      .map(sch => sch.dayOfWeek);
-  
-    // Limite para os próximos 14 dias apenas
-    const maxDays = 14;
-    for (let i = 0; i < maxDays; i++) {
-      const date = new Date(today);
-      date.setDate(today.getDate() + i);
-      const dayOfWeek = date.getDay();
-      
-      if (diasAtivosDoBarbeiro.includes(dayOfWeek)) {
-        dates.push(date);
-      }
+const safeServices = services || [];
+const safeBarbers = barbers || [];
+
+// Nomes dos Passos
+const stepNames = ["Serviço", "Barbeiro", "Data", "Horário", "Confirmação"];
+
+// Datas disponíveis (próximos 14 dias, filtrando dias fechados)
+const availableDates = useMemo(() => {
+  const dates = [];
+  if (!selectedBarber || !schedules) return dates;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Garante que está pegando corretamente só do barbeiro selecionado
+  const diasAtivosDoBarbeiro = schedules
+    .filter(sch => sch.barberName === selectedBarber.name && sch.isActive)
+    .map(sch => sch.dayOfWeek);
+
+  // Limite para os próximos 14 dias apenas
+  const maxDays = 14;
+  for (let i = 0; i < maxDays; i++) {
+    const date = new Date(today);
+    date.setDate(today.getDate() + i);
+    const dayOfWeek = date.getDay();
+    
+    if (diasAtivosDoBarbeiro.includes(dayOfWeek)) {
+      dates.push(date);
     }
-    return dates;
-  }, [selectedBarber, schedules]);
-  
-  
-  
-  // Efeito para carregar horários quando a data, serviço e barbeiro mudam
-  useEffect(() => {
-    if (selectedDate && selectedService && selectedBarber && schedules) {
-      setIsLoadingSlots(true);
-      
-      // 1. Descobre o dia da semana daquele agendamento
-      const dayOfWeek = selectedDate.getDay();
-  
-      // 2. Busca O HORÁRIO DESSE BARBEIRO NO DIA
-      const horarioDoDia = schedules.find(
-        sch =>
-          sch.barberName.trim().toLowerCase() === selectedBarber.name.trim().toLowerCase() &&
-          sch.dayOfWeek === dayOfWeek &&
-          sch.isActive
-      );
-  
-      // 3. Se não há horário, não mostra slots
-      if (!horarioDoDia) {
-        setAvailableSlots([]);
-        setIsLoadingSlots(false);
-        return;
-      }
-  
-      // 4. Filtra bookings para o dia selecionado
-      const dateStart = new Date(selectedDate);
-      dateStart.setHours(0, 0, 0, 0);
-      const dateEnd = new Date(selectedDate);
-      dateEnd.setHours(23, 59, 59, 999);
-      
-      const bookingsForDayAndBarber = bookings.filter(b => {
-        const bDate = new Date(b.startTime);
-        return bDate >= dateStart && bDate <= dateEnd && b.barberId === selectedBarber.id;
-      });
-  
-      // 5. Gera os slots APENAS dentro daquele intervalo do horário do admin
-      const slots = generateTimeSlots(
-        selectedDate,
-        selectedService?.duration || 30,
-        bookingsForDayAndBarber,
-        horarioDoDia.startTime,
-        horarioDoDia.endTime
-      );
-      
-      setAvailableSlots(slots);
+  }
+  return dates;
+}, [selectedBarber, schedules]);
+
+// FUNÇÃO DE GERAÇÃO DOS HORÁRIOS (COLE AQUI)
+const generateTimeSlots = (
+  selectedDate,
+  serviceDuration,
+  existingBookings,
+  start = "09:00",
+  end = "18:00",
+  breaksToday = []
+) => {
+  const slots = [];
+  const localDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+  const startStr = typeof start === "string" ? start : "09:00";
+  const endStr = typeof end === "string" ? end : "18:00";
+  const [startH, startM] = startStr.split(':').map(Number);
+  const [endH, endM] = endStr.split(':').map(Number);
+
+  const startTime = new Date(localDate);
+  startTime.setHours(startH, startM, 0, 0);
+  const endTime = new Date(localDate);
+  endTime.setHours(endH, endM, 0, 0);
+
+  let currentSlotTime = new Date(startTime);
+  while (currentSlotTime < endTime) {
+    const slotStart = new Date(currentSlotTime);
+    const slotEnd = new Date(slotStart.getTime() + serviceDuration * 60000);
+
+    if (slotEnd > endTime) break;
+
+    // FILTRO DO ALMOÇO
+    const isDuringBreak = breaksToday.some(lb => {
+      const [bStartH, bStartM] = lb.startTime.split(':').map(Number);
+      const [bEndH, bEndM] = lb.endTime.split(':').map(Number);
+      const breakStart = new Date(localDate);
+      breakStart.setHours(bStartH, bStartM, 0, 0);
+      const breakEnd = new Date(localDate);
+      breakEnd.setHours(bEndH, bEndM, 0, 0);
+      return slotStart < breakEnd && slotEnd > breakStart;
+    });
+
+    const isOccupied = existingBookings.some(booking => {
+      const bookingStart = new Date(booking.startTime);
+      const bookingEnd = new Date(booking.endTime);
+      return slotStart < bookingEnd && slotEnd > bookingStart;
+    });
+
+    if (!isDuringBreak && !isOccupied) {
+      slots.push(new Date(slotStart));
+    }
+    currentSlotTime.setMinutes(currentSlotTime.getMinutes() + 30);
+  }
+  return slots;
+};
+
+// Efeito para carregar horários quando a data, serviço e barbeiro mudam
+useEffect(() => {
+  if (selectedDate && selectedService && selectedBarber && schedules) {
+    setIsLoadingSlots(true);
+
+    const dayOfWeek = selectedDate.getDay();
+    const horarioDoDia = schedules.find(
+      sch =>
+        sch.barberName.trim().toLowerCase() === selectedBarber.name.trim().toLowerCase() &&
+        sch.dayOfWeek === dayOfWeek &&
+        sch.isActive
+    );
+
+    if (!horarioDoDia) {
+      setAvailableSlots([]);
       setIsLoadingSlots(false);
+      return;
     }
-  }, [selectedDate, selectedService, selectedBarber, bookings, lunchBreaks, monthlyPlans, schedules]);
+
+    const dateStart = new Date(selectedDate);
+    dateStart.setHours(0, 0, 0, 0);
+    const dateEnd = new Date(selectedDate);
+    dateEnd.setHours(23, 59, 59, 999);
+
+    const bookingsForDayAndBarber = bookings.filter(b => {
+      const bDate = new Date(b.startTime);
+      return bDate >= dateStart && bDate <= dateEnd && b.barberId === selectedBarber.id;
+    });
+
+    // NOVO: filtra só lunchBreaks do barbeiro e no dia
+    const breaksToday = lunchBreaks.filter(lb =>
+      lb.barberId === selectedBarber.id &&
+      lb.date === selectedDate.toISOString().split('T')[0]
+    );
+
+    const slots = generateTimeSlots(
+      selectedDate,
+      selectedService?.duration || 30,
+      bookingsForDayAndBarber,
+      horarioDoDia.startTime,
+      horarioDoDia.endTime,
+      breaksToday // NOVO!
+    );
+
+    setAvailableSlots(slots);
+    setIsLoadingSlots(false);
+  }
+}, [selectedDate, selectedService, selectedBarber, bookings, lunchBreaks, monthlyPlans, schedules]);
+
   
 
   // Funções de Seleção
@@ -1854,7 +1862,7 @@ const BookingFlow = ({ bookings, userId, onBookingComplete, onAddBooking, servic
 };
 
 // Componente da Lista de Agendamentos (Admin e Cliente)
-const BookingsList = ({ bookings, userId, isLoading }) => {
+const BookingsList = ({ bookings, userId, isLoading, onDeleteBooking }) => {
   
   const [myBookings] = useMemo(() => {
     // Ordena por data (mais recentes primeiro)
@@ -1875,7 +1883,7 @@ const BookingsList = ({ bookings, userId, isLoading }) => {
     return new Date(timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   };
   
-  const BookingCard = ({ booking }) => (
+  const BookingCard = ({ booking, onCancel }) => (
     <div className="bg-gray-700 p-4 rounded-lg shadow-md border-l-4 border-white">
       <p className="text-lg font-semibold text-white">{booking.serviceName}</p>
       <p className="text-sm text-gray-300">Cliente: {booking.clientName}</p>
@@ -1891,6 +1899,16 @@ const BookingsList = ({ bookings, userId, isLoading }) => {
         <Calendar className="h-3 w-3 mr-1" />
         Adicionar ao Calendário
       </button>
+      {/* NOVO BOTÃO DE CANCELAR DO CLIENTE */}
+      <div className="flex space-x-2 mt-3 pt-3 border-t border-gray-600">
+        <button
+          onClick={() => onCancel(booking.id, booking.serviceName)}
+          className="flex-1 bg-red-600 text-white py-2 px-3 rounded text-xs sm:text-sm font-semibold hover:bg-red-500 transition-colors flex items-center justify-center"
+        >
+          <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+          Cancelar Agendamento
+        </button>
+      </div>
     </div>
   );
 
@@ -1905,7 +1923,7 @@ const BookingsList = ({ bookings, userId, isLoading }) => {
         <h3 className="text-2xl font-semibold text-white mb-4 border-l-4 border-white pl-3">Meus Próximos Horários</h3>
         {myBookings.length > 0 ? (
           <div className="space-y-4">
-            {myBookings.map(b => <BookingCard key={b.id} booking={b} />)}
+           {myBookings.map(b => <BookingCard key={b.id} booking={b} onCancel={onDeleteBooking} />)}
           </div>
         ) : (
           <p className="text-gray-400 bg-gray-800 p-4 rounded-lg">Você ainda não tem nenhum agendamento.</p>
@@ -2910,7 +2928,7 @@ const AdminDashboard = ({ bookings, services = [], barbers = [], onAddWalkIn, us
 };
 
 // Gerenciamento de Agendamentos Admin
-const AdminBookings = ({ bookings, onUpdateBooking, onConfirmPayment }) => {
+const AdminBookings = ({ bookings, onUpdateBooking, onConfirmPayment, onDeleteBooking }) => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [duplicateWarning, setDuplicateWarning] = useState('');
   
@@ -2947,6 +2965,14 @@ const AdminBookings = ({ bookings, onUpdateBooking, onConfirmPayment }) => {
   const handleConfirmPayment = (bookingId) => {
     onConfirmPayment(bookingId);
   };
+
+  // NOVA: Função local para chamar o delete com confirmação
+  const handleDeleteClick = (bookingId, serviceName, clientName) => {
+    if (window.confirm(`Tem certeza que deseja EXCLUIR permanentemente o agendamento de "${serviceName}" para "${clientName}"? \n\nEsta ação não pode ser desfeita.`)) {
+      onDeleteBooking(bookingId, serviceName); // Chama a função principal
+    }
+  };
+
 
   return (
     <div className="animate-fade-in space-y-4 sm:space-y-6 p-4 sm:p-6">
@@ -3022,6 +3048,14 @@ const AdminBookings = ({ bookings, onUpdateBooking, onConfirmPayment }) => {
                     >
                       {booking.status === 'completed' ? 'Concluído' : 'Marcar como Concluído'}
                     </button>
+                    {/* NOVO BOTÃO DE EXCLUIR DO ADMIN */}
+                  <button 
+                    onClick={() => handleDeleteClick(booking.id, booking.serviceName, booking.clientName)}
+                    className="bg-red-600 text-white px-3 py-1 rounded text-xs sm:text-sm hover:bg-red-500 w-full sm:w-auto flex items-center justify-center"
+                  >
+                    <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                    Excluir
+                  </button>
                   </div>
                 </div>
               </div>
@@ -5731,14 +5765,15 @@ export default function App() {
       // Converter datas para Timestamp do Firebase
       const bookingData = {
         ...newBooking,
-        startTime: newBooking.startTime,
-        endTime: newBooking.endTime,
-        date: newBooking.date,
+        // Convertendo todas as datas para o formato seguro do Firebase
+        startTime: Timestamp.fromDate(newBooking.startTime),
+        endTime: Timestamp.fromDate(newBooking.endTime),
+        date: Timestamp.fromDate(newBooking.date),
         status: newBooking.status || 'confirmed',
-        createdAt: now,
-        updatedAt: now,
+        createdAt: Timestamp.fromDate(now),
+        updatedAt: Timestamp.fromDate(now),
         paymentConfirmed: newBooking.paymentConfirmed ?? false,
-        paymentConfirmedAt: newBooking.paymentConfirmed ? (newBooking.paymentConfirmedAt || now) : null,
+        paymentConfirmedAt: newBooking.paymentConfirmed ? (newBooking.paymentConfirmedAt ? Timestamp.fromDate(newBooking.paymentConfirmedAt) : Timestamp.fromDate(now)) : null,
         paymentConfirmedBy: newBooking.paymentConfirmed ? (newBooking.paymentConfirmedBy || userId || null) : null,
         addedToDashboard: newBooking.addedToDashboard ?? false,
         source: newBooking.source || 'online'
@@ -5746,8 +5781,9 @@ export default function App() {
       
       // Usar caminho correto para coleção
       const bookingsPath = getCollectionPath(COLLECTIONS.BOOKINGS);
-      const docRef = await addDoc(collection(db, bookingsPath), bookingData);
-      console.log("✅ Agendamento adicionado com ID:", docRef.id);
+      const bookingRef = doc(db, bookingsPath, newBooking.id); 
+await setDoc(bookingRef, bookingData);
+      console.log("✅ Agendamento adicionado com ID:", newBooking.id);
       
       // Adicionar notificação de sucesso
       const successMessage = bookingData.source === 'walk-in'
@@ -5762,7 +5798,7 @@ export default function App() {
         read: false
       }]);
       
-      return docRef.id;
+      return newBooking.id;
     } catch (error) {
       console.error("❌ Erro ao adicionar agendamento:", error);
       setError(`Erro ao salvar agendamento: ${error.message}`);
@@ -5822,7 +5858,7 @@ export default function App() {
       // Atualizar o documento usando setDoc com merge
       await setDoc(bookingRef, {
         ...updates,
-        updatedAt: new Date()
+        updatedAt: Timestamp.fromDate(new Date()) // CORRIGIDO
       }, { merge: true });
       
       console.log("✅ Agendamento atualizado com sucesso");
@@ -5870,9 +5906,9 @@ export default function App() {
       // Preparar os dados de atualização
       const updateData = {
         paymentConfirmed: true,
-        paymentConfirmedAt: new Date(),
+        paymentConfirmedAt: Timestamp.fromDate(new Date()), // CORRIGIDO
         paymentConfirmedBy: userId,
-        updatedAt: new Date()
+        updatedAt: Timestamp.fromDate(new Date()) // CORRIGIDO
       };
       
       // Verificar se o serviço já foi concluído
@@ -5906,6 +5942,8 @@ export default function App() {
       setError(`Erro ao confirmar pagamento: ${error.message}`);
     }
   };
+
+    
   
   // Tela de loading enquanto Firebase carrega
   if (isLoading) {
@@ -5918,6 +5956,66 @@ export default function App() {
       </div>
     );
   }
+
+
+
+   // ***** INÍCIO DA NOVA FUNÇÃO *****
+
+  // NOVA: Função para EXCLUIR agendamento (Chamada por ambos, Cliente e Admin)
+  const handleDeleteBooking = async (bookingId, bookingName) => {
+    
+    // Confirmação de segurança. A confirmação do Admin está separada.
+    if (!isAdmin) {
+      if (!window.confirm(`Tem certeza que deseja cancelar seu agendamento de "${bookingName}"?`)) {
+        return; // Cliente cancelou a exclusão
+      }
+    }
+    
+    try {
+      console.log("🗑️ Excluindo agendamento do Firestore:", bookingId);
+      
+      // Aguardar autenticação estar pronta
+      await waitForAuth();
+      
+      // Usar caminho correto para coleção
+      const bookingsPath = getCollectionPath(COLLECTIONS.BOOKINGS);
+      const bookingRef = doc(db, bookingsPath, bookingId);
+      
+      // Excluir o documento
+      await deleteDoc(bookingRef);
+      
+      console.log("✅ Agendamento excluído com sucesso");
+      
+      // Adicionar notificação de sucesso (apenas para admin)
+      if (isAdmin) {
+        setAdminNotifications(prev => [...prev, {
+          id: generateId(),
+          type: 'success',
+          message: `Agendamento "${bookingName}" excluído com sucesso.`,
+          timestamp: new Date(),
+          read: false
+        }]);
+      }
+      
+    } catch (error) {
+      console.error("❌ Erro ao excluir agendamento:", error);
+      setError(`Erro ao excluir agendamento: ${error.message}`);
+      
+      if (isAdmin) {
+        setAdminNotifications(prev => [...prev, {
+          id: generateId(),
+          type: 'error',
+          message: `Erro ao excluir agendamento: ${error.message}`,
+          timestamp: new Date(),
+          read: false
+        }]);
+      }
+    }
+  };
+
+  // ***** FIM DA NOVA FUNÇÃO *****
+
+
 
   // Tela de erro de autenticação
   if (authError) {
@@ -5956,8 +6054,13 @@ export default function App() {
             onRemoveMonthlyPlan={handleRemoveMonthlyPlan}
           />
         );
-      case 'admin_bookings':
-        return <AdminBookings bookings={bookings} onUpdateBooking={handleUpdateBooking} onConfirmPayment={handleConfirmPayment} />;
+        case 'admin_bookings':
+          return <AdminBookings 
+            bookings={bookings} 
+            onUpdateBooking={handleUpdateBooking} 
+            onConfirmPayment={handleConfirmPayment}
+            onDeleteBooking={handleDeleteBooking} // NOVO
+          />;
       case 'admin_clients':
         return <AdminClients bookings={bookings} />;
       case 'admin_analytics':
@@ -6017,8 +6120,13 @@ export default function App() {
           schedules={schedules}   
           />
         );
-      case 'my_bookings':
-        return <BookingsList bookings={bookings} userId={userId} isLoading={isLoadingBookings} />;
+        case 'my_bookings':
+      return <BookingsList 
+        bookings={bookings} 
+        userId={userId} 
+        isLoading={isLoadingBookings} 
+        onDeleteBooking={handleDeleteBooking} // NOVO
+      />;
       case 'services':
         return <ServicesView />;
       case 'contact':
