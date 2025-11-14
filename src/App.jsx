@@ -600,10 +600,10 @@ const AdminLogin = ({ onLogin }) => {
         // Dados padrão para o documento de admin
         const defaultAdminData = {
           id: 'main',
-          lastLogin: new Date(),
+          lastLogin: Timestamp.fromDate(new Date()), // CORRIGIDO
           isActive: true,
-          createdAt: new Date(),
-          updatedAt: new Date()
+          createdAt: Timestamp.fromDate(new Date()), // CORRIGIDO
+          updatedAt: Timestamp.fromDate(new Date())  // CORRIGIDO
         };
         
         // Garantir que o documento existe antes de atualizar
@@ -611,9 +611,9 @@ const AdminLogin = ({ onLogin }) => {
         
         // Atualizar o documento usando setDoc com merge
         await setDoc(adminRef, {
-          lastLogin: new Date(),
+          lastLogin: Timestamp.fromDate(new Date()), // CORRIGIDO
           isActive: true,
-          updatedAt: new Date()
+          updatedAt: Timestamp.fromDate(new Date())  // CORRIGIDO
         }, { merge: true });
         
         onLogin();
@@ -1286,7 +1286,9 @@ const generateTimeSlots = (
   existingBookings,
   start = "09:00",
   end = "18:00",
-  breaksToday = []
+  breaksToday = [],
+  recurringPlansToday = []
+
 ) => {
   const slots = [];
   const localDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
@@ -1324,7 +1326,19 @@ const generateTimeSlots = (
       return slotStart < bookingEnd && slotEnd > bookingStart;
     });
 
-    if (!isDuringBreak && !isOccupied) {
+    const isRecurringSlot = recurringPlansToday.some(planSlot => {
+      // planSlot.time é "20:00"
+      const [planH, planM] = planSlot.time.split(':').map(Number);
+      const planStart = new Date(localDate);
+      planStart.setHours(planH, planM, 0, 0);
+      
+      // Verifica se o slot atual (ex: 20:00) é o mesmo do plano
+      return slotStart.getTime() === planStart.getTime();
+    });
+    // <-- FIM DO NOVO BLOCO -->
+
+    // <-- 3. ADICIONAMOS A NOVA VERIFICAÇÃO AQUI -->
+    if (!isDuringBreak && !isOccupied && !isRecurringSlot) {
       slots.push(new Date(slotStart));
     }
     currentSlotTime.setMinutes(currentSlotTime.getMinutes() + 30);
@@ -1361,11 +1375,23 @@ useEffect(() => {
       return bDate >= dateStart && bDate <= dateEnd && b.barberId === selectedBarber.id;
     });
 
-    // NOVO: filtra só lunchBreaks do barbeiro e no dia
+    // filtra só lunchBreaks do barbeiro e no dia
     const breaksToday = lunchBreaks.filter(lb =>
       lb.barberId === selectedBarber.id &&
       lb.date === selectedDate.toISOString().split('T')[0]
     );
+    
+    // ***** INÍCIO DA CORREÇÃO FINAL *****
+    // Filtra os planos mensais para este dia e barbeiro (E QUE ESTÃO ATIVOS)
+    const recurringPlansToday = monthlyPlans.filter(plan =>
+      plan.barberId === selectedBarber.id &&
+      plan.active === true && // <-- Garante que o plano está ativo
+      plan.recurringSlots.some(slot => parseInt(slot.dayOfWeek) === dayOfWeek)
+    ).flatMap(plan => 
+        // Retorna apenas os slots que são para este dia da semana
+        plan.recurringSlots.filter(slot => parseInt(slot.dayOfWeek) === dayOfWeek)
+    );
+    // ***** FIM DA CORREÇÃO FINAL *****
 
     const slots = generateTimeSlots(
       selectedDate,
@@ -1373,7 +1399,8 @@ useEffect(() => {
       bookingsForDayAndBarber,
       horarioDoDia.startTime,
       horarioDoDia.endTime,
-      breaksToday // NOVO!
+      breaksToday,
+      recurringPlansToday // <-- Agora está aqui e correto
     );
 
     setAvailableSlots(slots);
@@ -2928,10 +2955,10 @@ const AdminDashboard = ({ bookings, services = [], barbers = [], onAddWalkIn, us
 };
 
 // Gerenciamento de Agendamentos Admin
-const AdminBookings = ({ bookings, onUpdateBooking, onConfirmPayment, onDeleteBooking }) => {
+const AdminBookings = ({ bookings, onUpdateBooking, onConfirmPayment, onDeleteBooking, barbers = [] }) => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [duplicateWarning, setDuplicateWarning] = useState('');
-  
+  const [selectedBarberId, setSelectedBarberId] = useState('all'); // Novo estado para o filtro
   // Limpar e validar dados de agendamentos
   const cleanedBookings = useMemo(() => {
     const cleaned = cleanBookingsData(bookings);
@@ -2953,10 +2980,17 @@ const AdminBookings = ({ bookings, onUpdateBooking, onConfirmPayment, onDeleteBo
   const todaysBookings = useMemo(() => {
     return cleanedBookings.filter(b => {
       if (!b.startTime) return false;
+
+      // Filtro de Data (lógica existente)
       const bookingDate = new Date(b.startTime);
-      return bookingDate.toISOString().split('T')[0] === selectedDate;
+      const isToday = bookingDate.toISOString().split('T')[0] === selectedDate;
+
+      // NOVO: Filtro de Barbeiro
+      const isCorrectBarber = (selectedBarberId === 'all') || (b.barberId === selectedBarberId);
+
+      return isToday && isCorrectBarber; // Retorna SÓ se passar nos dois filtros
     });
-  }, [cleanedBookings, selectedDate]);
+  }, [cleanedBookings, selectedDate, selectedBarberId]); // <-- ADICIONE 'selectedBarberId' AQUI
 
   const handleCompleteBooking = (bookingId) => {
     onUpdateBooking(bookingId, { status: 'completed' });
@@ -2984,6 +3018,19 @@ const AdminBookings = ({ bookings, onUpdateBooking, onConfirmPayment, onDeleteBo
           onChange={(e) => setSelectedDate(e.target.value)}
           className="bg-gray-700 text-white border-gray-600 rounded-lg p-2 w-full sm:w-auto"
         />
+        {/* NOVO: Filtro de Barbeiros */}
+      <select
+        value={selectedBarberId}
+        onChange={(e) => setSelectedBarberId(e.target.value)}
+        className="bg-gray-700 text-white border-gray-600 rounded-lg p-2 w-full sm:w-auto"
+      >
+        <option value="all">Todos os Barbeiros</option>
+        {barbers.map(barber => (
+          <option key={barber.id} value={barber.id}>
+            {barber.name}
+          </option>
+        ))}
+      </select>
       </div>
       
       {/* Aviso de duplicatas */}
@@ -2997,9 +3044,9 @@ const AdminBookings = ({ bookings, onUpdateBooking, onConfirmPayment, onDeleteBo
       )}
 
       <div className="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-xl">
-        <h3 className="text-lg sm:text-xl font-semibold text-white mb-3 sm:mb-4">
-          Agendamentos para {new Date(selectedDate).toLocaleDateString('pt-BR')}
-        </h3>
+      <h3 className="text-lg sm:text-xl font-semibold text-white mb-3 sm:mb-4">
+        Agendamentos para {new Date(selectedDate.replace(/-/g, '/')).toLocaleDateString('pt-BR')}
+      </h3>
         
         {todaysBookings.length > 0 ? (
           <div className="space-y-3 sm:space-y-4">
@@ -5174,8 +5221,8 @@ export default function App() {
         price: parseFloat(serviceData.price),
         duration: parseInt(serviceData.duration),
         description: serviceData.description || '',
-        createdAt: new Date(),
-        updatedAt: new Date()
+        createdAt: Timestamp.fromDate(new Date()), // CORRIGIDO
+        updatedAt: Timestamp.fromDate(new Date())  // CORRIGIDO
       };
       
       await addDoc(servicesRef, newService);
@@ -5214,7 +5261,7 @@ export default function App() {
         price: parseFloat(serviceData.price),
         duration: parseInt(serviceData.duration),
         description: serviceData.description || '',
-        updatedAt: new Date()
+        updatedAt: Timestamp.fromDate(new Date()) // CORRIGIDO
       };
       
       await updateDoc(serviceRef, updatedService);
@@ -5286,8 +5333,8 @@ export default function App() {
         startTime: scheduleData.startTime,
         endTime: scheduleData.endTime,
         isActive: scheduleData.isActive !== undefined ? scheduleData.isActive : true,
-        createdAt: new Date(),
-        updatedAt: new Date()
+        createdAt: Timestamp.fromDate(new Date()), // CORRIGIDO
+        updatedAt: Timestamp.fromDate(new Date())  // CORRIGIDO
       };
       
       await addDoc(schedulesRef, newSchedule);
@@ -5327,7 +5374,7 @@ export default function App() {
         startTime: scheduleData.startTime,
         endTime: scheduleData.endTime,
         isActive: scheduleData.isActive !== undefined ? scheduleData.isActive : true,
-        updatedAt: new Date()
+        updatedAt: Timestamp.fromDate(new Date()) // CORRIGIDO
       };
       
       await updateDoc(scheduleRef, updatedSchedule);
@@ -5401,8 +5448,8 @@ export default function App() {
         phone: barberData.phone || '',
         email: barberData.email || '',
         isActive: barberData.isActive !== undefined ? barberData.isActive : true,
-        createdAt: new Date(),
-        updatedAt: new Date()
+        createdAt: Timestamp.fromDate(new Date()), // CORRIGIDO
+        updatedAt: Timestamp.fromDate(new Date())  // CORRIGIDO
       };
       
       await addDoc(barbersRef, newBarber);
@@ -5444,7 +5491,7 @@ export default function App() {
         phone: barberData.phone || '',
         email: barberData.email || '',
         isActive: barberData.isActive !== undefined ? barberData.isActive : true,
-        updatedAt: new Date()
+        updatedAt: Timestamp.fromDate(new Date()) // CORRIGIDO
       };
       
       await updateDoc(barberRef, updatedBarber);
@@ -5485,7 +5532,7 @@ export default function App() {
         date: lunchData.date,
         startTime: lunchData.startTime,
         endTime: lunchData.endTime,
-        createdAt: new Date(),
+        createdAt: Timestamp.fromDate(new Date()), // CORRIGIDO
         active: true
       };
       
@@ -5561,7 +5608,7 @@ export default function App() {
         barberName: planData.barberName,
         recurringSlots: planData.recurringSlots,
         active: true,
-        createdAt: new Date()
+        createdAt: Timestamp.fromDate(new Date()) // CORRIGIDO
       };
       
       await addDoc(monthlyPlansRef, newPlan);
@@ -6060,6 +6107,7 @@ await setDoc(bookingRef, bookingData);
             onUpdateBooking={handleUpdateBooking} 
             onConfirmPayment={handleConfirmPayment}
             onDeleteBooking={handleDeleteBooking} // NOVO
+            barbers={barbers}
           />;
       case 'admin_clients':
         return <AdminClients bookings={bookings} />;
