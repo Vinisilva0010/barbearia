@@ -2981,16 +2981,25 @@ const AdminBookings = ({ bookings, onUpdateBooking, onConfirmPayment, onDeleteBo
     return cleanedBookings.filter(b => {
       if (!b.startTime) return false;
 
-      // Filtro de Data (lógica existente)
       const bookingDate = new Date(b.startTime);
-      const isToday = bookingDate.toISOString().split('T')[0] === selectedDate;
+      
+      // --- INÍCIO DA CORREÇÃO ---
+      // Pega ano, mês e dia locais (do Brasil/Computador) em vez de UTC
+      const year = bookingDate.getFullYear();
+      const month = String(bookingDate.getMonth() + 1).padStart(2, '0');
+      const day = String(bookingDate.getDate()).padStart(2, '0');
+      const bookingDateString = `${year}-${month}-${day}`; 
+      
+      // Compara a string local com a data selecionada
+      const isToday = bookingDateString === selectedDate;
+      // --- FIM DA CORREÇÃO ---
 
-      // NOVO: Filtro de Barbeiro
+      // Filtro de Barbeiro (lógica existente)
       const isCorrectBarber = (selectedBarberId === 'all') || (b.barberId === selectedBarberId);
 
-      return isToday && isCorrectBarber; // Retorna SÓ se passar nos dois filtros
+      return isToday && isCorrectBarber; 
     });
-  }, [cleanedBookings, selectedDate, selectedBarberId]); // <-- ADICIONE 'selectedBarberId' AQUI
+  }, [cleanedBookings, selectedDate, selectedBarberId]);
 
   const handleCompleteBooking = (bookingId) => {
     onUpdateBooking(bookingId, { status: 'completed' });
