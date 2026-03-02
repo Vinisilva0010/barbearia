@@ -10,7 +10,7 @@ import {
   AlertCircle,
   TrendingUp,
   DollarSign,
-  PlusCircle,
+  PlusCircle,           
   Hash,
   Bell,
   X,
@@ -593,7 +593,7 @@ const AdminLogin = ({ onLogin }) => {
     
     try {
       // Verificar credenciais de admin
-      if (credentials.username === 'admin' && credentials.password === 'admin123') {
+      if (credentials.username === 'admin' && credentials.password === 'bigode1533') {
         // Aguardar autenticação estar pronta
         await waitForAuth();
         
